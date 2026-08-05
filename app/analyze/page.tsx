@@ -205,7 +205,7 @@ function AnalyzePageInner() {
           <div className="mb-6 p-4 rounded-xl bg-green-bright/10 border border-green-bright/30 flex items-center gap-3">
             <CheckCircle size={18} className="text-green-bright shrink-0" />
             <p className="text-green-bright text-sm font-medium">
-              Welcome to FadeMe Pro! Your first month is just $1. Start analyzing below.
+              Welcome to FadeMe Pro! Your first week is just $1. Start analyzing below.
             </p>
           </div>
         )}
@@ -231,7 +231,7 @@ function AnalyzePageInner() {
             <div className="rounded-2xl border border-green-bright/30 bg-card p-6 mb-6 text-left">
               <div className="flex items-end gap-2 mb-1">
                 <span className="text-4xl font-black text-white">$1</span>
-                <span className="text-text-dim text-sm mb-1">first month</span>
+                <span className="text-text-dim text-sm mb-1">first week</span>
               </div>
               <p className="text-text-dim text-sm mb-5">
                 then <span className="text-white font-semibold">$19.99/month</span> — cancel anytime
@@ -263,7 +263,7 @@ function AnalyzePageInner() {
                 ) : (
                   <>
                     <Zap size={16} />
-                    Get Started — $1 First Month
+                    Get Started — $1 First Week
                   </>
                 )}
               </button>

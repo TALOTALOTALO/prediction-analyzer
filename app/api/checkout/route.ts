@@ -31,6 +31,7 @@ export async function POST() {
     ],
     subscription_data: {
       metadata: { userId },
+      // Coupon knocks first invoice from $19.99 → $1 (first week promo)
     },
     success_url: `${process.env.NEXT_PUBLIC_APP_URL}/analyze?success=true`,
     cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/analyze`,
