@@ -13,6 +13,9 @@ import {
   ArrowRight,
   CheckCircle,
   Star,
+  Lock,
+  EyeOff,
+  Ban,
 } from "lucide-react";
 
 export default function LandingPage() {
@@ -67,7 +70,8 @@ export default function LandingPage() {
           </h1>
           <p className="text-text-dim text-lg md:text-xl max-w-2xl mx-auto mb-5 leading-relaxed">
             Upload any prediction market screenshot. FadeMe grades your bet, estimates true odds,
-            and tells you whether to buy, hold, or fade — in seconds.
+            and tells you whether to buy, hold, or <span className="text-white font-semibold">fade</span> — in seconds.
+            Find the bets that won&apos;t hit and profit by fading them.
           </p>
 
           <p className="text-green-bright font-semibold tracking-[0.2em] uppercase text-sm mb-10">
@@ -90,19 +94,19 @@ export default function LandingPage() {
             </a>
           </div>
 
-          {/* Social proof */}
+          {/* Trust signals */}
           <div className="flex flex-col sm:flex-row items-center justify-center gap-6 text-sm text-text-dim">
             <div className="flex items-center gap-1.5">
               <CheckCircle size={14} className="text-green-bright" />
-              Works with any prediction market
+              We never touch your money
             </div>
             <div className="flex items-center gap-1.5">
               <CheckCircle size={14} className="text-green-bright" />
-              No account required
+              No access to your trading accounts
             </div>
             <div className="flex items-center gap-1.5">
               <CheckCircle size={14} className="text-green-bright" />
-              Results in under 10 seconds
+              Screenshots only — nothing stored
             </div>
           </div>
         </div>
@@ -125,6 +129,63 @@ export default function LandingPage() {
                 {p}
               </span>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* What is Fading */}
+      <section className="py-20 px-4">
+        <div className="max-w-5xl mx-auto">
+          <SectionLabel>The Strategy</SectionLabel>
+          <h2 className="text-3xl md:text-4xl font-bold text-center mb-3">
+            What does it mean to <span className="text-green-bright">fade</span> a bet?
+          </h2>
+          <p className="text-text-dim text-center mb-12 max-w-xl mx-auto">
+            Fading is one of the most powerful edges in prediction markets — and most traders ignore it.
+          </p>
+
+          <div className="grid md:grid-cols-3 gap-5 mb-12">
+            <div className="rounded-2xl border border-border-subtle bg-card p-6">
+              <div className="w-10 h-10 rounded-xl bg-red-500/10 flex items-center justify-center mb-4">
+                <Ban size={20} className="text-red-400" />
+              </div>
+              <h3 className="font-bold text-white mb-2">Spot the Overpriced Bet</h3>
+              <p className="text-text-dim text-sm leading-relaxed">
+                Markets overprice popular narratives. When the crowd piles into a YES at 80¢ but the real probability is 60%, that&apos;s a fade opportunity worth taking.
+              </p>
+            </div>
+            <div className="rounded-2xl border border-green-bright/20 bg-green-dim p-6">
+              <div className="w-10 h-10 rounded-xl bg-green-bright/10 flex items-center justify-center mb-4">
+                <Target size={20} className="text-green-bright" />
+              </div>
+              <h3 className="font-bold text-white mb-2">Find the Edge</h3>
+              <p className="text-text-dim text-sm leading-relaxed">
+                FadeMe compares the market&apos;s implied probability against our AI&apos;s true estimate. A big gap = a clear fade. Upload a screenshot and we do the math in seconds.
+              </p>
+            </div>
+            <div className="rounded-2xl border border-border-subtle bg-card p-6">
+              <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center mb-4">
+                <TrendingUp size={20} className="text-blue-400" />
+              </div>
+              <h3 className="font-bold text-white mb-2">Profit When They&apos;re Wrong</h3>
+              <p className="text-text-dim text-sm leading-relaxed">
+                You don&apos;t need to predict the future — you just need to be right more than the market. Consistently fading mispriced bets is how sharp traders build long-term profit.
+              </p>
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-border-subtle bg-card p-6 flex flex-col md:flex-row items-center gap-6">
+            <div className="flex-1">
+              <p className="text-white font-bold text-lg mb-2">The FadeMe edge in plain English</p>
+              <p className="text-text-dim text-sm leading-relaxed">
+                If a bet is priced at 75¢ (implied 75% chance) but our AI estimates the true probability at 55%, the market is <span className="text-white font-semibold">mispriced by 20%</span>. That&apos;s a FADE — bet NO, and the market is paying you 25¢ on a coin that should flip tails 45% of the time.
+              </p>
+            </div>
+            <div className="shrink-0 rounded-xl bg-red-500/10 border border-red-500/20 px-6 py-4 text-center">
+              <p className="text-xs text-text-dim mb-1 uppercase tracking-widest">Verdict</p>
+              <p className="text-3xl font-black text-red-400">FADE</p>
+              <p className="text-xs text-red-400/70 mt-1">20% edge against market</p>
+            </div>
           </div>
         </div>
       </section>
@@ -228,6 +289,45 @@ export default function LandingPage() {
             {TESTIMONIALS.map((t) => (
               <TestimonialCard key={t.name} {...t} />
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Trust signals */}
+      <section className="py-16 px-4 border-t border-border-subtle">
+        <div className="max-w-5xl mx-auto">
+          <SectionLabel>Zero Risk to You</SectionLabel>
+          <h2 className="text-3xl font-bold text-center mb-10">
+            We analyze. You decide. Your accounts stay yours.
+          </h2>
+          <div className="grid sm:grid-cols-3 gap-5">
+            <div className="rounded-2xl border border-border-subtle bg-card p-6 flex flex-col items-center text-center gap-3">
+              <div className="w-12 h-12 rounded-2xl bg-green-dim border border-green-bright/20 flex items-center justify-center">
+                <Lock size={22} className="text-green-bright" />
+              </div>
+              <h3 className="font-bold text-white">We never touch your money</h3>
+              <p className="text-text-dim text-sm leading-relaxed">
+                FadeMe is purely an analysis tool. We have no ability to place bets, move funds, or interact with your trading accounts in any way.
+              </p>
+            </div>
+            <div className="rounded-2xl border border-border-subtle bg-card p-6 flex flex-col items-center text-center gap-3">
+              <div className="w-12 h-12 rounded-2xl bg-green-dim border border-green-bright/20 flex items-center justify-center">
+                <EyeOff size={22} className="text-green-bright" />
+              </div>
+              <h3 className="font-bold text-white">No account access needed</h3>
+              <p className="text-text-dim text-sm leading-relaxed">
+                No API keys. No logins to Kalshi, Polymarket, or any other platform. Just upload a screenshot — that&apos;s all we ever see.
+              </p>
+            </div>
+            <div className="rounded-2xl border border-border-subtle bg-card p-6 flex flex-col items-center text-center gap-3">
+              <div className="w-12 h-12 rounded-2xl bg-green-dim border border-green-bright/20 flex items-center justify-center">
+                <Shield size={22} className="text-green-bright" />
+              </div>
+              <h3 className="font-bold text-white">Screenshots aren&apos;t stored</h3>
+              <p className="text-text-dim text-sm leading-relaxed">
+                Your bet screenshots are sent to our AI for analysis and immediately discarded. We never log, store, or share your betting activity.
+              </p>
+            </div>
           </div>
         </div>
       </section>
