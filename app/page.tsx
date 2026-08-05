@@ -57,7 +57,7 @@ export default function LandingPage() {
           {/* Badge */}
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-green-bright/25 bg-green-dim text-green-bright text-xs font-medium mb-6">
             <Zap size={12} />
-            Powered by Claude AI
+            Analyze your bets for $1
           </div>
 
           <h1 className="text-5xl md:text-6xl font-black leading-[1.05] tracking-tight mb-6">
