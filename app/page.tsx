@@ -247,7 +247,11 @@ export default function LandingPage() {
           <p className="text-text-dim text-xs text-center">
             For informational purposes only. Not financial advice. Prediction markets involve risk.
           </p>
-          <p className="text-text-dim text-xs">© 2025 FadeMe</p>
+          <div className="flex items-center gap-6 text-xs text-text-dim">
+            <Link href="/terms" className="hover:text-white transition-colors">Terms</Link>
+            <Link href="/privacy" className="hover:text-white transition-colors">Privacy</Link>
+            <span>© 2026 FadeMe</span>
+          </div>
         </div>
       </footer>
     </div>

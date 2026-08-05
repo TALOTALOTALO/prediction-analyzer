@@ -17,6 +17,7 @@ import {
   X,
   CheckCircle,
   Lock,
+  Settings,
 } from "lucide-react";
 
 interface DetectedBet {
@@ -86,6 +87,7 @@ function AnalyzePageInner() {
 
   const [subStatus, setSubStatus] = useState<SubStatus>("loading");
   const [checkoutLoading, setCheckoutLoading] = useState(false);
+  const [portalLoading, setPortalLoading] = useState(false);
 
   const [dragActive, setDragActive] = useState(false);
   const [preview, setPreview] = useState<string | null>(null);
@@ -110,6 +112,18 @@ function AnalyzePageInner() {
       else setCheckoutLoading(false);
     } catch {
       setCheckoutLoading(false);
+    }
+  };
+
+  const openPortal = async () => {
+    setPortalLoading(true);
+    try {
+      const res = await fetch("/api/portal", { method: "POST" });
+      const data = await res.json();
+      if (data.url) window.location.href = data.url;
+      else setPortalLoading(false);
+    } catch {
+      setPortalLoading(false);
     }
   };
 
@@ -195,7 +209,23 @@ function AnalyzePageInner() {
           <span className="text-white font-semibold tracking-tight">
             Fade<span className="text-green-bright">Me</span>
           </span>
-          <UserButton />
+          <div className="flex items-center gap-3">
+            {subStatus === "active" && (
+              <button
+                onClick={openPortal}
+                disabled={portalLoading}
+                className="flex items-center gap-1.5 text-xs text-text-dim hover:text-white transition-colors disabled:opacity-50"
+              >
+                {portalLoading ? (
+                  <span className="inline-block w-3 h-3 border border-white/20 border-t-white/60 rounded-full animate-spin" />
+                ) : (
+                  <Settings size={13} />
+                )}
+                Manage Plan
+              </button>
+            )}
+            <UserButton />
+          </div>
         </div>
       </nav>
 
