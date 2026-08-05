@@ -9,46 +9,51 @@ export async function POST() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // Check for existing active subscription — don't create duplicate checkouts
-  const { data: existing } = await getSupabase()
-    .from("subscriptions")
-    .select("status, stripe_customer_id")
-    .eq("user_id", userId)
-    .single();
+  try {
+    const { data: existing, error: dbError } = await getSupabase()
+      .from("subscriptions")
+      .select("status, stripe_customer_id")
+      .eq("user_id", userId)
+      .single();
 
-  if (existing?.status === "active" || existing?.status === "trialing") {
-    return NextResponse.json({ error: "Already subscribed" }, { status: 409 });
+    if (dbError && dbError.code !== "PGRST116") {
+      console.error("Supabase error in checkout:", dbError);
+      return NextResponse.json({ error: "Service temporarily unavailable" }, { status: 503 });
+    }
+
+    if (existing?.status === "active" || existing?.status === "trialing") {
+      return NextResponse.json({ error: "Already subscribed" }, { status: 409 });
+    }
+
+    const user = await currentUser();
+    const email = user?.emailAddresses[0]?.emailAddress;
+    const stripe = getStripe();
+
+    const sessionParams: Parameters<typeof stripe.checkout.sessions.create>[0] = {
+      mode: "subscription",
+      line_items: [{ price: process.env.STRIPE_MONTHLY_PRICE_ID!, quantity: 1 }],
+      subscription_data: { metadata: { userId } },
+      success_url: `${process.env.NEXT_PUBLIC_APP_URL}/analyze?success=true`,
+      cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/analyze`,
+    };
+
+    if (process.env.STRIPE_INTRO_COUPON_ID) {
+      sessionParams.discounts = [{ coupon: process.env.STRIPE_INTRO_COUPON_ID }];
+    }
+
+    if (existing?.stripe_customer_id) {
+      sessionParams.customer = existing.stripe_customer_id;
+    } else if (email) {
+      sessionParams.customer_email = email;
+    }
+
+    const session = await stripe.checkout.sessions.create(sessionParams, {
+      idempotencyKey: `checkout-${userId}`,
+    });
+
+    return NextResponse.json({ url: session.url });
+  } catch (err) {
+    console.error("Checkout error:", err);
+    return NextResponse.json({ error: "Failed to create checkout session" }, { status: 500 });
   }
-
-  const user = await currentUser();
-  const email = user?.emailAddresses[0]?.emailAddress;
-  const stripe = getStripe();
-
-  const sessionParams: Parameters<typeof stripe.checkout.sessions.create>[0] = {
-    mode: "subscription",
-    line_items: [
-      { price: process.env.STRIPE_MONTHLY_PRICE_ID!, quantity: 1 },
-    ],
-    subscription_data: {
-      metadata: { userId },
-      // Coupon knocks first invoice from $19.99 → $1 (first week promo)
-    },
-    success_url: `${process.env.NEXT_PUBLIC_APP_URL}/analyze?success=true`,
-    cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/analyze`,
-  };
-
-  // Apply $1 intro coupon if configured
-  if (process.env.STRIPE_INTRO_COUPON_ID) {
-    sessionParams.discounts = [{ coupon: process.env.STRIPE_INTRO_COUPON_ID }];
-  }
-
-  // Reuse existing Stripe customer if we have one
-  if (existing?.stripe_customer_id) {
-    sessionParams.customer = existing.stripe_customer_id;
-  } else if (email) {
-    sessionParams.customer_email = email;
-  }
-
-  const session = await stripe.checkout.sessions.create(sessionParams);
-  return NextResponse.json({ url: session.url });
 }

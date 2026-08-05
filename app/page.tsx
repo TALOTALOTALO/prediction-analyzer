@@ -325,7 +325,7 @@ export default function LandingPage() {
               </div>
               <h3 className="font-bold text-white">Screenshots aren&apos;t stored</h3>
               <p className="text-text-dim text-sm leading-relaxed">
-                Your bet screenshots are sent to our AI for analysis and immediately discarded. We never log, store, or share your betting activity.
+                Screenshots are not stored by FadeMe. They are sent to our AI provider for analysis only, and are subject to their standard data retention policy.
               </p>
             </div>
           </div>

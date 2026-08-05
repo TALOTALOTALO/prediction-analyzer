@@ -15,44 +15,60 @@ export async function POST(req: NextRequest) {
 
   let event: Stripe.Event;
   try {
-    event = stripe.webhooks.constructEvent(
-      body,
-      sig,
-      process.env.STRIPE_WEBHOOK_SECRET!
-    );
+    event = stripe.webhooks.constructEvent(body, sig, process.env.STRIPE_WEBHOOK_SECRET!);
   } catch {
     return NextResponse.json({ error: "Webhook signature invalid" }, { status: 400 });
   }
 
-  switch (event.type) {
-    case "customer.subscription.created":
-    case "customer.subscription.updated": {
-      const sub = event.data.object as Stripe.Subscription;
-      const userId = sub.metadata?.userId;
-      if (!userId) break;
+  try {
+    switch (event.type) {
+      case "customer.subscription.created":
+      case "customer.subscription.updated": {
+        const sub = event.data.object as Stripe.Subscription;
+        const userId = sub.metadata?.userId;
+        if (!userId) break;
 
-      await getSupabase().from("subscriptions").upsert({
-        user_id: userId,
-        stripe_customer_id: sub.customer as string,
-        stripe_subscription_id: sub.id,
-        status: sub.status,
-        trial_end: sub.trial_end,
-        updated_at: new Date().toISOString(),
-      });
-      break;
+        await getSupabase().from("subscriptions").upsert({
+          user_id: userId,
+          stripe_customer_id: sub.customer as string,
+          stripe_subscription_id: sub.id,
+          status: sub.status,
+          trial_end: sub.trial_end,
+          updated_at: new Date().toISOString(),
+        });
+        break;
+      }
+
+      case "customer.subscription.deleted": {
+        const sub = event.data.object as Stripe.Subscription;
+        const userId = sub.metadata?.userId;
+        if (!userId) break;
+
+        await getSupabase()
+          .from("subscriptions")
+          .update({ status: "canceled", updated_at: new Date().toISOString() })
+          .eq("user_id", userId);
+        break;
+      }
+
+      case "invoice.payment_failed": {
+        const invoice = event.data.object as Stripe.Invoice & { subscription?: string };
+        const subId = invoice.subscription ?? null;
+        if (!subId) break;
+
+        await getSupabase()
+          .from("subscriptions")
+          .update({ status: "past_due", updated_at: new Date().toISOString() })
+          .eq("stripe_subscription_id", subId);
+        break;
+      }
+
+      default:
+        console.log(`Unhandled webhook event: ${event.type}`);
     }
-
-    case "customer.subscription.deleted": {
-      const sub = event.data.object as Stripe.Subscription;
-      const userId = sub.metadata?.userId;
-      if (!userId) break;
-
-      await getSupabase()
-        .from("subscriptions")
-        .update({ status: "canceled", updated_at: new Date().toISOString() })
-        .eq("user_id", userId);
-      break;
-    }
+  } catch (err) {
+    console.error("Webhook handler error:", err);
+    return NextResponse.json({ error: "Webhook processing failed" }, { status: 500 });
   }
 
   return NextResponse.json({ received: true });

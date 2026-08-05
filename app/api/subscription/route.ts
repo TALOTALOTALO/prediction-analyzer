@@ -5,20 +5,25 @@ import { getSupabase } from "@/lib/supabase";
 export async function GET() {
   const { userId } = await auth();
   if (!userId) {
-    return NextResponse.json({ active: false, status: "unauthenticated" });
+    return NextResponse.json({ active: false }, { status: 401 });
   }
 
-  const { data } = await getSupabase()
-    .from("subscriptions")
-    .select("status, trial_end")
-    .eq("user_id", userId)
-    .single();
+  try {
+    const { data, error: dbError } = await getSupabase()
+      .from("subscriptions")
+      .select("status, trial_end")
+      .eq("user_id", userId)
+      .single();
 
-  const active = data?.status === "active" || data?.status === "trialing";
+    if (dbError && dbError.code !== "PGRST116") {
+      console.error("Supabase error in subscription check:", dbError);
+      return NextResponse.json({ active: false }, { status: 503 });
+    }
 
-  return NextResponse.json({
-    active,
-    status: data?.status ?? "none",
-    trialEnd: data?.trial_end ?? null,
-  });
+    const active = data?.status === "active" || data?.status === "trialing";
+    return NextResponse.json({ active, trialEnd: data?.trial_end ?? null });
+  } catch (err) {
+    console.error("Subscription check error:", err);
+    return NextResponse.json({ active: false }, { status: 503 });
+  }
 }

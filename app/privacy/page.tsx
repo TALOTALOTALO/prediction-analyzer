@@ -92,9 +92,9 @@ export default function PrivacyPage() {
 
           <Section title="5. Screenshot Data">
             <p>
-              Screenshots you upload are sent directly to Anthropic's Claude API for analysis.
-              We do not store, log, or retain your screenshots after the analysis response is
-              returned to you. Anthropic's data handling is governed by their{" "}
+              Screenshots you upload are sent to our AI provider for analysis and are not
+              stored by FadeMe. Anthropic may retain API request data per their own terms.
+              Their data handling is governed by their{" "}
               <a
                 href="https://www.anthropic.com/legal/privacy"
                 target="_blank"

@@ -5,21 +5,62 @@ import { getSupabase } from "@/lib/supabase";
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
+const ALLOWED_MIME_TYPES = ["image/jpeg", "image/png", "image/gif", "image/webp"] as const;
+type AllowedMimeType = (typeof ALLOWED_MIME_TYPES)[number];
+
+// ~10MB decoded limit (base64 is ~133% of original, so 13.5MB base64 ≈ 10MB image)
+const MAX_BASE64_LENGTH = 13_500_000;
+
+// Simple in-memory rate limit: max 20 analyses per user per hour
+const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
+const RATE_LIMIT = 20;
+const RATE_WINDOW_MS = 60 * 60 * 1000;
+
+function checkRateLimit(userId: string): boolean {
+  const now = Date.now();
+  const entry = rateLimitMap.get(userId);
+  if (!entry || now > entry.resetAt) {
+    rateLimitMap.set(userId, { count: 1, resetAt: now + RATE_WINDOW_MS });
+    return true;
+  }
+  if (entry.count >= RATE_LIMIT) return false;
+  entry.count++;
+  return true;
+}
+
 export async function POST(req: NextRequest) {
-  // Auth check
   const { userId } = await auth();
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // Subscription check
-  const { data: sub } = await getSupabase()
-    .from("subscriptions")
-    .select("status")
-    .eq("user_id", userId)
-    .single();
+  // Rate limit check
+  if (!checkRateLimit(userId)) {
+    return NextResponse.json(
+      { error: "Too many requests. Please wait before analyzing another bet." },
+      { status: 429 }
+    );
+  }
 
-  const isActive = sub?.status === "active" || sub?.status === "trialing";
+  // Subscription check — handle Supabase errors explicitly
+  let isActive = false;
+  try {
+    const { data: sub, error: dbError } = await getSupabase()
+      .from("subscriptions")
+      .select("status")
+      .eq("user_id", userId)
+      .single();
+
+    if (dbError && dbError.code !== "PGRST116") {
+      console.error("Supabase subscription check error:", dbError);
+      return NextResponse.json({ error: "Service temporarily unavailable" }, { status: 503 });
+    }
+    isActive = sub?.status === "active" || sub?.status === "trialing";
+  } catch (err) {
+    console.error("Supabase connection error:", err);
+    return NextResponse.json({ error: "Service temporarily unavailable" }, { status: 503 });
+  }
+
   if (!isActive) {
     return NextResponse.json({ error: "Subscription required" }, { status: 403 });
   }
@@ -28,8 +69,15 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { image, mimeType } = body as { image: string; mimeType: string };
 
+    // Server-side input validation
     if (!image || !mimeType) {
       return NextResponse.json({ error: "Missing image or mimeType" }, { status: 400 });
+    }
+    if (!ALLOWED_MIME_TYPES.includes(mimeType as AllowedMimeType)) {
+      return NextResponse.json({ error: "Invalid image type" }, { status: 400 });
+    }
+    if (image.length > MAX_BASE64_LENGTH) {
+      return NextResponse.json({ error: "Image too large. Maximum size is 10MB." }, { status: 400 });
     }
 
     // Call 1: Vision parse — extract structured bet details from screenshot
@@ -44,7 +92,7 @@ export async function POST(req: NextRequest) {
               type: "image",
               source: {
                 type: "base64",
-                media_type: mimeType as "image/jpeg" | "image/png" | "image/gif" | "image/webp",
+                media_type: mimeType as AllowedMimeType,
                 data: image,
               },
             },
@@ -131,9 +179,6 @@ Be rigorous and realistic. Most bets should grade C or lower.`,
     return NextResponse.json({ detected, analysis });
   } catch (error) {
     console.error("Analyze error:", error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Internal server error" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Analysis failed. Please try again." }, { status: 500 });
   }
 }
