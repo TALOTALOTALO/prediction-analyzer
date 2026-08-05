@@ -1,0 +1,80 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: #070d1a;
+  color: #ffffff;
+  font-family: 'Inter', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #070d1a;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 220, 130, 0.3);
+  border-radius: 3px;
+}
+
+/* Range input styling */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+input[type="range"]::-webkit-slider-runnable-track {
+  height: 4px;
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 2px;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 18px;
+  width: 18px;
+  border-radius: 50%;
+  background: #00dc82;
+  margin-top: -7px;
+  box-shadow: 0 0 12px rgba(0, 220, 130, 0.5);
+}
+
+input[type="range"]::-moz-range-track {
+  height: 4px;
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 2px;
+}
+
+input[type="range"]::-moz-range-thumb {
+  border: none;
+  height: 18px;
+  width: 18px;
+  border-radius: 50%;
+  background: #00dc82;
+  box-shadow: 0 0 12px rgba(0, 220, 130, 0.5);
+}
+
+/* Grade badge glow */
+.grade-s { box-shadow: 0 0 24px rgba(0, 220, 130, 0.4); }
+.grade-a { box-shadow: 0 0 24px rgba(0, 200, 110, 0.3); }
+.grade-b { box-shadow: 0 0 24px rgba(59, 130, 246, 0.3); }
+.grade-c { box-shadow: 0 0 24px rgba(234, 179, 8, 0.3); }
+.grade-d { box-shadow: 0 0 24px rgba(249, 115, 22, 0.3); }
+.grade-f { box-shadow: 0 0 24px rgba(239, 68, 68, 0.3); }
