@@ -1,9 +1,29 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@clerk/nextjs/server";
+import { supabaseAdmin } from "@/lib/supabase";
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 export async function POST(req: NextRequest) {
+  // Auth check
+  const { userId } = await auth();
+  if (!userId) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  // Subscription check
+  const { data: sub } = await supabaseAdmin
+    .from("subscriptions")
+    .select("status")
+    .eq("user_id", userId)
+    .single();
+
+  const isActive = sub?.status === "active" || sub?.status === "trialing";
+  if (!isActive) {
+    return NextResponse.json({ error: "Subscription required" }, { status: 403 });
+  }
+
   try {
     const body = await req.json();
     const { image, mimeType } = body as { image: string; mimeType: string };

@@ -1,7 +1,9 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import { UserButton } from "@clerk/nextjs";
 import {
   Upload,
   ArrowLeft,
@@ -13,6 +15,8 @@ import {
   Shield,
   Zap,
   X,
+  CheckCircle,
+  Lock,
 } from "lucide-react";
 
 interface DetectedBet {
@@ -52,42 +56,12 @@ const GRADE_CONFIG: Record<
   string,
   { bg: string; border: string; text: string; glow: string }
 > = {
-  S: {
-    bg: "bg-[#00dc82]/10",
-    border: "border-[#00dc82]",
-    text: "text-[#00dc82]",
-    glow: "grade-s",
-  },
-  A: {
-    bg: "bg-[#00c86e]/10",
-    border: "border-[#00c86e]",
-    text: "text-[#00c86e]",
-    glow: "grade-a",
-  },
-  B: {
-    bg: "bg-blue-500/10",
-    border: "border-blue-500",
-    text: "text-blue-400",
-    glow: "grade-b",
-  },
-  C: {
-    bg: "bg-yellow-500/10",
-    border: "border-yellow-500",
-    text: "text-yellow-400",
-    glow: "grade-c",
-  },
-  D: {
-    bg: "bg-orange-500/10",
-    border: "border-orange-500",
-    text: "text-orange-400",
-    glow: "grade-d",
-  },
-  F: {
-    bg: "bg-red-500/10",
-    border: "border-red-500",
-    text: "text-red-400",
-    glow: "grade-f",
-  },
+  S: { bg: "bg-[#00dc82]/10", border: "border-[#00dc82]", text: "text-[#00dc82]", glow: "grade-s" },
+  A: { bg: "bg-[#00c86e]/10", border: "border-[#00c86e]", text: "text-[#00c86e]", glow: "grade-a" },
+  B: { bg: "bg-blue-500/10", border: "border-blue-500", text: "text-blue-400", glow: "grade-b" },
+  C: { bg: "bg-yellow-500/10", border: "border-yellow-500", text: "text-yellow-400", glow: "grade-c" },
+  D: { bg: "bg-orange-500/10", border: "border-orange-500", text: "text-orange-400", glow: "grade-d" },
+  F: { bg: "bg-red-500/10", border: "border-red-500", text: "text-red-400", glow: "grade-f" },
 };
 
 const REC_CONFIG: Record<string, { icon: typeof TrendingUp; color: string; bg: string }> = {
@@ -96,7 +70,15 @@ const REC_CONFIG: Record<string, { icon: typeof TrendingUp; color: string; bg: s
   FADE: { icon: TrendingDown, color: "text-red-400", bg: "bg-red-400/10" },
 };
 
+type SubStatus = "loading" | "active" | "none";
+
 export default function AnalyzePage() {
+  const searchParams = useSearchParams();
+  const justSubscribed = searchParams.get("success") === "true";
+
+  const [subStatus, setSubStatus] = useState<SubStatus>("loading");
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
+
   const [dragActive, setDragActive] = useState(false);
   const [preview, setPreview] = useState<string | null>(null);
   const [imageData, setImageData] = useState<{ base64: string; mimeType: string } | null>(null);
@@ -104,6 +86,24 @@ export default function AnalyzePage() {
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    fetch("/api/subscription")
+      .then((r) => r.json())
+      .then((d) => setSubStatus(d.active ? "active" : "none"));
+  }, []);
+
+  const startCheckout = async () => {
+    setCheckoutLoading(true);
+    try {
+      const res = await fetch("/api/checkout", { method: "POST" });
+      const data = await res.json();
+      if (data.url) window.location.href = data.url;
+      else setCheckoutLoading(false);
+    } catch {
+      setCheckoutLoading(false);
+    }
+  };
 
   const processFile = useCallback((file: File) => {
     if (!file.type.startsWith("image/")) {
@@ -187,210 +187,246 @@ export default function AnalyzePage() {
           <span className="text-white font-semibold tracking-tight">
             Bet<span className="text-green-bright">IQ</span>
           </span>
-          <div className="w-16" />
+          <UserButton />
         </div>
       </nav>
 
       <div className="max-w-4xl mx-auto px-4 py-10">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold mb-2">Analyze Your Bet</h1>
-          <p className="text-text-dim">
-            Upload a screenshot from any prediction market — we&apos;ll grade it instantly.
-          </p>
-        </div>
-
-        {/* Upload Zone */}
-        {!preview ? (
-          <div
-            className={`relative border-2 border-dashed rounded-2xl p-12 text-center transition-all cursor-pointer ${
-              dragActive
-                ? "border-green-bright bg-green-dim"
-                : "border-border-subtle hover:border-green-bright/40 hover:bg-card"
-            }`}
-            onDragOver={(e) => { e.preventDefault(); setDragActive(true); }}
-            onDragLeave={() => setDragActive(false)}
-            onDrop={handleDrop}
-            onClick={() => inputRef.current?.click()}
-          >
-            <input
-              ref={inputRef}
-              type="file"
-              className="hidden"
-              accept="image/*"
-              onChange={handleFileChange}
-            />
-            <div className="flex flex-col items-center gap-4">
-              <div className="w-16 h-16 rounded-2xl bg-green-dim border border-green-bright/20 flex items-center justify-center">
-                <Upload className="text-green-bright" size={28} />
-              </div>
-              <div>
-                <p className="text-white font-semibold mb-1">Drop your screenshot here</p>
-                <p className="text-text-dim text-sm">
-                  or <span className="text-green-bright">browse files</span> · PNG, JPG, WEBP up to 10MB
-                </p>
-              </div>
-              <p className="text-xs text-text-dim">
-                Works with Kalshi, Polymarket, PredictIt, and any other platform
-              </p>
-            </div>
+        {/* Success banner */}
+        {justSubscribed && (
+          <div className="mb-6 p-4 rounded-xl bg-green-bright/10 border border-green-bright/30 flex items-center gap-3">
+            <CheckCircle size={18} className="text-green-bright shrink-0" />
+            <p className="text-green-bright text-sm font-medium">
+              Welcome to BetIQ Pro! Your first month is just $1. Start analyzing below.
+            </p>
           </div>
-        ) : (
-          <div className="space-y-4">
-            {/* Preview */}
-            <div className="relative rounded-2xl overflow-hidden border border-border-subtle bg-card">
-              <button
-                onClick={clearImage}
-                className="absolute top-3 right-3 z-10 w-8 h-8 rounded-full bg-black/60 flex items-center justify-center hover:bg-black/80 transition-colors"
-              >
-                <X size={14} className="text-white" />
-              </button>
-              <img src={preview} alt="Bet screenshot" className="w-full max-h-80 object-contain" />
-            </div>
+        )}
 
-            {/* Analyze button */}
-            {!result && (
+        {/* Loading */}
+        {subStatus === "loading" && (
+          <div className="flex items-center justify-center py-32">
+            <div className="w-6 h-6 border-2 border-white/10 border-t-green-bright rounded-full animate-spin" />
+          </div>
+        )}
+
+        {/* Upgrade wall */}
+        {subStatus === "none" && (
+          <div className="max-w-md mx-auto text-center py-12">
+            <div className="w-16 h-16 rounded-2xl bg-green-dim border border-green-bright/20 flex items-center justify-center mx-auto mb-6">
+              <Lock size={28} className="text-green-bright" />
+            </div>
+            <h1 className="text-2xl font-bold mb-3">Unlock BetIQ Pro</h1>
+            <p className="text-text-dim mb-8 leading-relaxed">
+              Get unlimited AI bet analyses, edge detection, and clear recommendations.
+            </p>
+
+            <div className="rounded-2xl border border-green-bright/30 bg-card p-6 mb-6 text-left">
+              <div className="flex items-end gap-2 mb-1">
+                <span className="text-4xl font-black text-white">$1</span>
+                <span className="text-text-dim text-sm mb-1">first month</span>
+              </div>
+              <p className="text-text-dim text-sm mb-5">
+                then <span className="text-white font-semibold">$19.99/month</span> — cancel anytime
+              </p>
+              <ul className="space-y-2.5 mb-6">
+                {[
+                  "Unlimited screenshot analyses",
+                  "AI edge detection & grading (S–F)",
+                  "BUY / HOLD / FADE recommendations",
+                  "Bull case, bear case & key risks",
+                  "Works with Kalshi, Polymarket, PredictIt & more",
+                ].map((f) => (
+                  <li key={f} className="flex items-center gap-2.5 text-sm text-white/80">
+                    <CheckCircle size={14} className="text-green-bright shrink-0" />
+                    {f}
+                  </li>
+                ))}
+              </ul>
               <button
-                onClick={analyze}
-                disabled={loading}
-                className="w-full py-4 rounded-xl bg-green-bright text-[#070d1a] font-bold text-base hover:brightness-110 transition-all disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                onClick={startCheckout}
+                disabled={checkoutLoading}
+                className="w-full py-3.5 rounded-xl bg-green-bright text-[#070d1a] font-bold text-base hover:brightness-110 transition-all disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
-                {loading ? (
+                {checkoutLoading ? (
                   <>
                     <span className="inline-block w-4 h-4 border-2 border-[#070d1a]/30 border-t-[#070d1a] rounded-full animate-spin" />
-                    Analyzing...
+                    Redirecting to checkout...
                   </>
                 ) : (
                   <>
-                    <Zap size={18} />
-                    Analyze Bet
+                    <Zap size={16} />
+                    Get Started — $1 First Month
                   </>
                 )}
               </button>
-            )}
+            </div>
+            <p className="text-xs text-text-dim">Secure checkout via Stripe. No hidden fees.</p>
           </div>
         )}
 
-        {/* Error */}
-        {error && (
-          <div className="mt-4 p-4 rounded-xl bg-red-500/10 border border-red-500/30 flex items-start gap-3">
-            <AlertCircle size={18} className="text-red-400 mt-0.5 shrink-0" />
-            <p className="text-red-300 text-sm">{error}</p>
-          </div>
-        )}
-
-        {/* Results */}
-        {result && (
-          <div className="mt-8 space-y-5">
-            {/* Grade + Recommendation row */}
-            <div className="grid grid-cols-2 gap-4">
-              {/* Grade card */}
-              <div className={`rounded-2xl border ${gradeStyle.border} ${gradeStyle.bg} ${gradeStyle.glow} p-6 flex flex-col items-center justify-center gap-2`}>
-                <p className="text-text-dim text-xs uppercase tracking-widest font-medium">Grade</p>
-                <p className={`text-7xl font-black ${gradeStyle.text}`}>{grade}</p>
-                <p className={`text-sm font-medium ${gradeStyle.text}`}>{result.analysis.gradeLabel}</p>
-              </div>
-
-              {/* Recommendation card */}
-              <div className={`rounded-2xl border border-border-subtle bg-card p-6 flex flex-col items-center justify-center gap-3`}>
-                <p className="text-text-dim text-xs uppercase tracking-widest font-medium">Recommendation</p>
-                <div className={`w-14 h-14 rounded-2xl ${recStyle.bg} flex items-center justify-center`}>
-                  <RecIcon size={28} className={recStyle.color} />
-                </div>
-                <p className={`text-2xl font-black ${recStyle.color}`}>{rec}</p>
-                <p className="text-text-dim text-xs text-center leading-snug">
-                  {result.analysis.recommendationReason}
-                </p>
-              </div>
-            </div>
-
-            {/* Probability bars */}
-            <div className="rounded-2xl border border-border-subtle bg-card p-6 space-y-4">
-              <h3 className="font-semibold text-sm text-text-dim uppercase tracking-widest">Probability Assessment</h3>
-              <div className="space-y-3">
-                <ProbBar
-                  label="Market Implied"
-                  value={result.detected.impliedProbability}
-                  color="bg-blue-500"
-                />
-                <ProbBar
-                  label="AI True Estimate"
-                  value={result.analysis.trueOdds}
-                  color="bg-green-bright"
-                />
-              </div>
-              <div className="pt-2 flex items-center justify-between text-sm">
-                <span className="text-text-dim">Edge</span>
-                <span className={`font-bold ${result.analysis.trueOdds > result.detected.impliedProbability ? "text-green-bright" : "text-red-400"}`}>
-                  {result.analysis.trueOdds > result.detected.impliedProbability ? "+" : ""}
-                  {(result.analysis.trueOdds - result.detected.impliedProbability).toFixed(1)}%
-                </span>
-              </div>
-            </div>
-
-            {/* Bet details */}
-            <div className="rounded-2xl border border-border-subtle bg-card p-6">
-              <h3 className="font-semibold text-sm text-text-dim uppercase tracking-widest mb-4">Detected Bet</h3>
-              <div className="grid grid-cols-2 gap-3">
-                <DetailRow label="Platform" value={result.detected.platform} />
-                <DetailRow label="Category" value={result.detected.category} />
-                <DetailRow label="Position" value={result.detected.position} />
-                <DetailRow label="Odds" value={result.detected.odds} />
-                <DetailRow label="Stake" value={result.detected.stake} />
-                <DetailRow label="Payout" value={result.detected.potentialPayout} />
-              </div>
-              <div className="mt-3 pt-3 border-t border-border-subtle">
-                <p className="text-xs text-text-dim mb-1">Event</p>
-                <p className="text-sm text-white leading-snug">{result.detected.event}</p>
-              </div>
-            </div>
-
-            {/* Summary */}
-            <div className="rounded-2xl border border-border-subtle bg-card p-6 space-y-4">
-              <h3 className="font-semibold text-sm text-text-dim uppercase tracking-widest">Analysis</h3>
-              <p className="text-white/80 text-sm leading-relaxed">{result.analysis.summary}</p>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <CaseCard type="bull" text={result.analysis.bullCase} />
-                <CaseCard type="bear" text={result.analysis.bearCase} />
-              </div>
-            </div>
-
-            {/* Risks */}
-            <div className="rounded-2xl border border-border-subtle bg-card p-6 space-y-3">
-              <h3 className="font-semibold text-sm text-text-dim uppercase tracking-widest">Key Risks</h3>
-              {result.analysis.keyRisks.map((risk, i) => (
-                <div key={i} className="flex items-start gap-3">
-                  <div className="w-5 h-5 rounded-full bg-orange-500/15 flex items-center justify-center shrink-0 mt-0.5">
-                    <AlertCircle size={11} className="text-orange-400" />
-                  </div>
-                  <p className="text-sm text-white/80 leading-snug">{risk}</p>
-                </div>
-              ))}
-            </div>
-
-            {/* Market inefficiency */}
-            {result.analysis.marketInefficiency && (
-              <div className="rounded-2xl border border-green-bright/20 bg-green-dim p-5 flex items-start gap-3">
-                <Shield size={18} className="text-green-bright shrink-0 mt-0.5" />
-                <div>
-                  <p className="text-xs text-green-bright font-semibold uppercase tracking-wider mb-1">Market Insight</p>
-                  <p className="text-sm text-white/80 leading-snug">{result.analysis.marketInefficiency}</p>
-                </div>
-              </div>
-            )}
-
-            {/* Confidence + new analysis */}
-            <div className="flex items-center justify-between pt-2">
-              <p className="text-text-dim text-sm">
-                Confidence: <span className="text-white">{result.analysis.confidenceLevel}</span>
+        {/* Full analyzer — subscribers only */}
+        {subStatus === "active" && (
+          <>
+            <div className="text-center mb-8">
+              <h1 className="text-3xl font-bold mb-2">Analyze Your Bet</h1>
+              <p className="text-text-dim">
+                Upload a screenshot from any prediction market — we&apos;ll grade it instantly.
               </p>
-              <button
-                onClick={clearImage}
-                className="flex items-center gap-1 text-sm text-green-bright hover:brightness-110 transition-colors"
-              >
-                Analyze another <ChevronRight size={14} />
-              </button>
             </div>
-          </div>
+
+            {!preview ? (
+              <div
+                className={`relative border-2 border-dashed rounded-2xl p-12 text-center transition-all cursor-pointer ${
+                  dragActive
+                    ? "border-green-bright bg-green-dim"
+                    : "border-border-subtle hover:border-green-bright/40 hover:bg-card"
+                }`}
+                onDragOver={(e) => { e.preventDefault(); setDragActive(true); }}
+                onDragLeave={() => setDragActive(false)}
+                onDrop={handleDrop}
+                onClick={() => inputRef.current?.click()}
+              >
+                <input ref={inputRef} type="file" className="hidden" accept="image/*" onChange={handleFileChange} />
+                <div className="flex flex-col items-center gap-4">
+                  <div className="w-16 h-16 rounded-2xl bg-green-dim border border-green-bright/20 flex items-center justify-center">
+                    <Upload className="text-green-bright" size={28} />
+                  </div>
+                  <div>
+                    <p className="text-white font-semibold mb-1">Drop your screenshot here</p>
+                    <p className="text-text-dim text-sm">
+                      or <span className="text-green-bright">browse files</span> · PNG, JPG, WEBP up to 10MB
+                    </p>
+                  </div>
+                  <p className="text-xs text-text-dim">Works with Kalshi, Polymarket, PredictIt, and any other platform</p>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="relative rounded-2xl overflow-hidden border border-border-subtle bg-card">
+                  <button onClick={clearImage} className="absolute top-3 right-3 z-10 w-8 h-8 rounded-full bg-black/60 flex items-center justify-center hover:bg-black/80 transition-colors">
+                    <X size={14} className="text-white" />
+                  </button>
+                  <img src={preview} alt="Bet screenshot" className="w-full max-h-80 object-contain" />
+                </div>
+
+                {!result && (
+                  <button
+                    onClick={analyze}
+                    disabled={loading}
+                    className="w-full py-4 rounded-xl bg-green-bright text-[#070d1a] font-bold text-base hover:brightness-110 transition-all disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  >
+                    {loading ? (
+                      <>
+                        <span className="inline-block w-4 h-4 border-2 border-[#070d1a]/30 border-t-[#070d1a] rounded-full animate-spin" />
+                        Analyzing...
+                      </>
+                    ) : (
+                      <><Zap size={18} /> Analyze Bet</>
+                    )}
+                  </button>
+                )}
+              </div>
+            )}
+
+            {error && (
+              <div className="mt-4 p-4 rounded-xl bg-red-500/10 border border-red-500/30 flex items-start gap-3">
+                <AlertCircle size={18} className="text-red-400 mt-0.5 shrink-0" />
+                <p className="text-red-300 text-sm">{error}</p>
+              </div>
+            )}
+
+            {result && (
+              <div className="mt-8 space-y-5">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className={`rounded-2xl border ${gradeStyle.border} ${gradeStyle.bg} ${gradeStyle.glow} p-6 flex flex-col items-center justify-center gap-2`}>
+                    <p className="text-text-dim text-xs uppercase tracking-widest font-medium">Grade</p>
+                    <p className={`text-7xl font-black ${gradeStyle.text}`}>{grade}</p>
+                    <p className={`text-sm font-medium ${gradeStyle.text}`}>{result.analysis.gradeLabel}</p>
+                  </div>
+
+                  <div className="rounded-2xl border border-border-subtle bg-card p-6 flex flex-col items-center justify-center gap-3">
+                    <p className="text-text-dim text-xs uppercase tracking-widest font-medium">Recommendation</p>
+                    <div className={`w-14 h-14 rounded-2xl ${recStyle.bg} flex items-center justify-center`}>
+                      <RecIcon size={28} className={recStyle.color} />
+                    </div>
+                    <p className={`text-2xl font-black ${recStyle.color}`}>{rec}</p>
+                    <p className="text-text-dim text-xs text-center leading-snug">{result.analysis.recommendationReason}</p>
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-border-subtle bg-card p-6 space-y-4">
+                  <h3 className="font-semibold text-sm text-text-dim uppercase tracking-widest">Probability Assessment</h3>
+                  <div className="space-y-3">
+                    <ProbBar label="Market Implied" value={result.detected.impliedProbability} color="bg-blue-500" />
+                    <ProbBar label="AI True Estimate" value={result.analysis.trueOdds} color="bg-green-bright" />
+                  </div>
+                  <div className="pt-2 flex items-center justify-between text-sm">
+                    <span className="text-text-dim">Edge</span>
+                    <span className={`font-bold ${result.analysis.trueOdds > result.detected.impliedProbability ? "text-green-bright" : "text-red-400"}`}>
+                      {result.analysis.trueOdds > result.detected.impliedProbability ? "+" : ""}
+                      {(result.analysis.trueOdds - result.detected.impliedProbability).toFixed(1)}%
+                    </span>
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-border-subtle bg-card p-6">
+                  <h3 className="font-semibold text-sm text-text-dim uppercase tracking-widest mb-4">Detected Bet</h3>
+                  <div className="grid grid-cols-2 gap-3">
+                    <DetailRow label="Platform" value={result.detected.platform} />
+                    <DetailRow label="Category" value={result.detected.category} />
+                    <DetailRow label="Position" value={result.detected.position} />
+                    <DetailRow label="Odds" value={result.detected.odds} />
+                    <DetailRow label="Stake" value={result.detected.stake} />
+                    <DetailRow label="Payout" value={result.detected.potentialPayout} />
+                  </div>
+                  <div className="mt-3 pt-3 border-t border-border-subtle">
+                    <p className="text-xs text-text-dim mb-1">Event</p>
+                    <p className="text-sm text-white leading-snug">{result.detected.event}</p>
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-border-subtle bg-card p-6 space-y-4">
+                  <h3 className="font-semibold text-sm text-text-dim uppercase tracking-widest">Analysis</h3>
+                  <p className="text-white/80 text-sm leading-relaxed">{result.analysis.summary}</p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <CaseCard type="bull" text={result.analysis.bullCase} />
+                    <CaseCard type="bear" text={result.analysis.bearCase} />
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-border-subtle bg-card p-6 space-y-3">
+                  <h3 className="font-semibold text-sm text-text-dim uppercase tracking-widest">Key Risks</h3>
+                  {result.analysis.keyRisks.map((risk, i) => (
+                    <div key={i} className="flex items-start gap-3">
+                      <div className="w-5 h-5 rounded-full bg-orange-500/15 flex items-center justify-center shrink-0 mt-0.5">
+                        <AlertCircle size={11} className="text-orange-400" />
+                      </div>
+                      <p className="text-sm text-white/80 leading-snug">{risk}</p>
+                    </div>
+                  ))}
+                </div>
+
+                {result.analysis.marketInefficiency && (
+                  <div className="rounded-2xl border border-green-bright/20 bg-green-dim p-5 flex items-start gap-3">
+                    <Shield size={18} className="text-green-bright shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-xs text-green-bright font-semibold uppercase tracking-wider mb-1">Market Insight</p>
+                      <p className="text-sm text-white/80 leading-snug">{result.analysis.marketInefficiency}</p>
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex items-center justify-between pt-2">
+                  <p className="text-text-dim text-sm">
+                    Confidence: <span className="text-white">{result.analysis.confidenceLevel}</span>
+                  </p>
+                  <button onClick={clearImage} className="flex items-center gap-1 text-sm text-green-bright hover:brightness-110 transition-colors">
+                    Analyze another <ChevronRight size={14} />
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>
@@ -405,10 +441,7 @@ function ProbBar({ label, value, color }: { label: string; value: number; color:
         <span className="text-white font-medium">{value?.toFixed(1) ?? "—"}%</span>
       </div>
       <div className="h-2 bg-white/5 rounded-full overflow-hidden">
-        <div
-          className={`h-full rounded-full ${color} transition-all duration-700`}
-          style={{ width: `${Math.min(value ?? 0, 100)}%` }}
-        />
+        <div className={`h-full rounded-full ${color} transition-all duration-700`} style={{ width: `${Math.min(value ?? 0, 100)}%` }} />
       </div>
     </div>
   );
