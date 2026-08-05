@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import {
   Upload,
   BarChart2,
@@ -25,9 +26,12 @@ export default function LandingPage() {
       {/* Nav */}
       <nav className="fixed top-0 left-0 right-0 z-50 border-b border-border-subtle bg-bg/80 backdrop-blur-sm">
         <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
-          <span className="text-white font-bold text-lg tracking-tight">
-            Fade<span className="text-green-bright">Me</span>
-          </span>
+          <Link href="/" className="flex items-center gap-2">
+            <Image src="/logo-icon.png" alt="FadeMe" width={28} height={28} className="rounded-md" />
+            <span className="text-white font-bold text-lg tracking-tight">
+              Fade<span className="text-green-bright">Me</span>
+            </span>
+          </Link>
           <div className="hidden md:flex items-center gap-8 text-sm text-text-dim">
             <a href="#how-it-works" className="hover:text-white transition-colors">How It Works</a>
             <a href="#features" className="hover:text-white transition-colors">Features</a>
@@ -45,6 +49,11 @@ export default function LandingPage() {
       {/* Hero */}
       <section className="bg-hero-gradient pt-32 pb-20 px-4">
         <div className="max-w-4xl mx-auto text-center">
+          {/* Logo */}
+          <div className="flex justify-center mb-6">
+            <Image src="/logo-icon.png" alt="FadeMe" width={72} height={72} className="rounded-2xl" />
+          </div>
+
           {/* Badge */}
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-green-bright/25 bg-green-dim text-green-bright text-xs font-medium mb-6">
             <Zap size={12} />
@@ -56,9 +65,13 @@ export default function LandingPage() {
             <span className="text-green-bright">before</span>{" "}
             you commit.
           </h1>
-          <p className="text-text-dim text-lg md:text-xl max-w-2xl mx-auto mb-10 leading-relaxed">
+          <p className="text-text-dim text-lg md:text-xl max-w-2xl mx-auto mb-5 leading-relaxed">
             Upload any prediction market screenshot. FadeMe grades your bet, estimates true odds,
             and tells you whether to buy, hold, or fade — in seconds.
+          </p>
+
+          <p className="text-green-bright font-semibold tracking-[0.2em] uppercase text-sm mb-10">
+            Analyze. Predict. Fade.
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mb-12">

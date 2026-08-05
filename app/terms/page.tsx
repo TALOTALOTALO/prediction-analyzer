@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { ArrowLeft } from "lucide-react";
 
 export const metadata = {
@@ -15,9 +16,12 @@ export default function TermsPage() {
             <ArrowLeft size={16} />
             <span className="text-sm">Back</span>
           </Link>
-          <span className="text-white font-semibold tracking-tight">
-            Fade<span className="text-green-bright">Me</span>
-          </span>
+          <Link href="/" className="flex items-center gap-2">
+            <Image src="/logo-icon.png" alt="FadeMe" width={24} height={24} className="rounded-md" />
+            <span className="text-white font-semibold tracking-tight">
+              Fade<span className="text-green-bright">Me</span>
+            </span>
+          </Link>
           <div className="w-16" />
         </div>
       </nav>
