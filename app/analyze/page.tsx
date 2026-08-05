@@ -193,7 +193,7 @@ function AnalyzePageInner() {
             <span className="text-sm">Back</span>
           </Link>
           <span className="text-white font-semibold tracking-tight">
-            Bet<span className="text-green-bright">IQ</span>
+            Fade<span className="text-green-bright">Me</span>
           </span>
           <UserButton />
         </div>
@@ -205,7 +205,7 @@ function AnalyzePageInner() {
           <div className="mb-6 p-4 rounded-xl bg-green-bright/10 border border-green-bright/30 flex items-center gap-3">
             <CheckCircle size={18} className="text-green-bright shrink-0" />
             <p className="text-green-bright text-sm font-medium">
-              Welcome to BetIQ Pro! Your first month is just $1. Start analyzing below.
+              Welcome to FadeMe Pro! Your first month is just $1. Start analyzing below.
             </p>
           </div>
         )}
@@ -223,7 +223,7 @@ function AnalyzePageInner() {
             <div className="w-16 h-16 rounded-2xl bg-green-dim border border-green-bright/20 flex items-center justify-center mx-auto mb-6">
               <Lock size={28} className="text-green-bright" />
             </div>
-            <h1 className="text-2xl font-bold mb-3">Unlock BetIQ Pro</h1>
+            <h1 className="text-2xl font-bold mb-3">Unlock FadeMe Pro</h1>
             <p className="text-text-dim mb-8 leading-relaxed">
               Get unlimited AI bet analyses, edge detection, and clear recommendations.
             </p>

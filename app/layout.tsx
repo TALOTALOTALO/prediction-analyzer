@@ -3,11 +3,11 @@ import { ClerkProvider } from "@clerk/nextjs";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "BetIQ — AI Prediction Market Analyzer",
+  title: "FadeMe — AI Prediction Market Analyzer",
   description:
     "Upload any prediction market screenshot and get an instant AI-powered grade, edge analysis, and recommendation.",
   openGraph: {
-    title: "BetIQ — AI Prediction Market Analyzer",
+    title: "FadeMe — AI Prediction Market Analyzer",
     description: "Grade any bet. Know your edge before you commit.",
     type: "website",
   },

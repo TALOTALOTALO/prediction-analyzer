@@ -26,7 +26,7 @@ export default function LandingPage() {
       <nav className="fixed top-0 left-0 right-0 z-50 border-b border-border-subtle bg-bg/80 backdrop-blur-sm">
         <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
           <span className="text-white font-bold text-lg tracking-tight">
-            Bet<span className="text-green-bright">IQ</span>
+            Fade<span className="text-green-bright">Me</span>
           </span>
           <div className="hidden md:flex items-center gap-8 text-sm text-text-dim">
             <a href="#how-it-works" className="hover:text-white transition-colors">How It Works</a>
@@ -57,7 +57,7 @@ export default function LandingPage() {
             you commit.
           </h1>
           <p className="text-text-dim text-lg md:text-xl max-w-2xl mx-auto mb-10 leading-relaxed">
-            Upload any prediction market screenshot. BetIQ grades your bet, estimates true odds,
+            Upload any prediction market screenshot. FadeMe grades your bet, estimates true odds,
             and tells you whether to buy, hold, or fade — in seconds.
           </p>
 
@@ -143,7 +143,7 @@ export default function LandingPage() {
             Every edge matters.
           </h2>
           <p className="text-text-dim text-center mb-14 max-w-xl mx-auto">
-            BetIQ gives you institutional-grade analysis on every bet, automatically.
+            FadeMe gives you institutional-grade analysis on every bet, automatically.
           </p>
 
           <div className="grid sm:grid-cols-2 gap-4">
@@ -242,12 +242,12 @@ export default function LandingPage() {
       <footer className="border-t border-border-subtle py-8 px-6">
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
           <span className="text-white font-bold">
-            Bet<span className="text-green-bright">IQ</span>
+            Fade<span className="text-green-bright">Me</span>
           </span>
           <p className="text-text-dim text-xs text-center">
             For informational purposes only. Not financial advice. Prediction markets involve risk.
           </p>
-          <p className="text-text-dim text-xs">© 2025 BetIQ</p>
+          <p className="text-text-dim text-xs">© 2025 FadeMe</p>
         </div>
       </footer>
     </div>
@@ -449,7 +449,7 @@ const TESTIMONIALS = [
     name: "Jordan K.",
     handle: "Polymarket trader",
     stars: 5,
-    text: "I analyze 30+ bets a month. BetIQ cut my research time in half and my hit rate went up. The risk breakdowns are gold.",
+    text: "I analyze 30+ bets a month. FadeMe cut my research time in half and my hit rate went up. The risk breakdowns are gold.",
   },
   {
     name: "Priya M.",
