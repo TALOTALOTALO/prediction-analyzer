@@ -1,6 +1,6 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabase";
+import { getSupabase } from "@/lib/supabase";
 
 export async function GET() {
   const { userId } = await auth();
@@ -8,7 +8,7 @@ export async function GET() {
     return NextResponse.json({ active: false, status: "unauthenticated" });
   }
 
-  const { data } = await supabaseAdmin
+  const { data } = await getSupabase()
     .from("subscriptions")
     .select("status, trial_end")
     .eq("user_id", userId)

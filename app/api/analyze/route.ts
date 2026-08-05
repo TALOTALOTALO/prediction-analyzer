@@ -1,7 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { supabaseAdmin } from "@/lib/supabase";
+import { getSupabase } from "@/lib/supabase";
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -13,7 +13,7 @@ export async function POST(req: NextRequest) {
   }
 
   // Subscription check
-  const { data: sub } = await supabaseAdmin
+  const { data: sub } = await getSupabase()
     .from("subscriptions")
     .select("status")
     .eq("user_id", userId)

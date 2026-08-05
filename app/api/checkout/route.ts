@@ -1,7 +1,7 @@
 import { auth, currentUser } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
-import { stripe } from "@/lib/stripe";
-import { supabaseAdmin } from "@/lib/supabase";
+import { getStripe } from "@/lib/stripe";
+import { getSupabase } from "@/lib/supabase";
 
 export async function POST() {
   const { userId } = await auth();
@@ -10,7 +10,7 @@ export async function POST() {
   }
 
   // Check for existing active subscription — don't create duplicate checkouts
-  const { data: existing } = await supabaseAdmin
+  const { data: existing } = await getSupabase()
     .from("subscriptions")
     .select("status, stripe_customer_id")
     .eq("user_id", userId)
@@ -22,6 +22,7 @@ export async function POST() {
 
   const user = await currentUser();
   const email = user?.emailAddresses[0]?.emailAddress;
+  const stripe = getStripe();
 
   const sessionParams: Parameters<typeof stripe.checkout.sessions.create>[0] = {
     mode: "subscription",
@@ -30,7 +31,6 @@ export async function POST() {
     ],
     subscription_data: {
       metadata: { userId },
-      // $1 intro coupon knocks first invoice from $19.99 → $1
     },
     success_url: `${process.env.NEXT_PUBLIC_APP_URL}/analyze?success=true`,
     cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/analyze`,

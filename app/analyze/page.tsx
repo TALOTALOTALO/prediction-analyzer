@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useCallback, useEffect, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { UserButton } from "@clerk/nextjs";
@@ -73,6 +73,14 @@ const REC_CONFIG: Record<string, { icon: typeof TrendingUp; color: string; bg: s
 type SubStatus = "loading" | "active" | "none";
 
 export default function AnalyzePage() {
+  return (
+    <Suspense>
+      <AnalyzePageInner />
+    </Suspense>
+  );
+}
+
+function AnalyzePageInner() {
   const searchParams = useSearchParams();
   const justSubscribed = searchParams.get("success") === "true";
 

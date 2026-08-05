@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
-import { stripe } from "@/lib/stripe";
-import { supabaseAdmin } from "@/lib/supabase";
+import { getStripe } from "@/lib/stripe";
+import { getSupabase } from "@/lib/supabase";
 
 export async function POST(req: NextRequest) {
   const body = await req.text();
@@ -10,6 +10,8 @@ export async function POST(req: NextRequest) {
   if (!sig) {
     return NextResponse.json({ error: "Missing stripe-signature" }, { status: 400 });
   }
+
+  const stripe = getStripe();
 
   let event: Stripe.Event;
   try {
@@ -29,7 +31,7 @@ export async function POST(req: NextRequest) {
       const userId = sub.metadata?.userId;
       if (!userId) break;
 
-      await supabaseAdmin.from("subscriptions").upsert({
+      await getSupabase().from("subscriptions").upsert({
         user_id: userId,
         stripe_customer_id: sub.customer as string,
         stripe_subscription_id: sub.id,
@@ -45,7 +47,7 @@ export async function POST(req: NextRequest) {
       const userId = sub.metadata?.userId;
       if (!userId) break;
 
-      await supabaseAdmin
+      await getSupabase()
         .from("subscriptions")
         .update({ status: "canceled", updated_at: new Date().toISOString() })
         .eq("user_id", userId);
