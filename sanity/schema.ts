@@ -38,10 +38,6 @@ const post = defineType({
       of: [
         { type: "block" },
         { type: "image", options: { hotspot: true } },
-        {
-          type: "code",
-          options: { language: "text", languageAlternatives: [{ title: "Text", value: "text" }] },
-        },
       ],
     }),
   ],
