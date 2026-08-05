@@ -39,6 +39,7 @@ export default function LandingPage() {
             <a href="#how-it-works" className="hover:text-white transition-colors">How It Works</a>
             <a href="#features" className="hover:text-white transition-colors">Features</a>
             <a href="#calculator" className="hover:text-white transition-colors">Calculator</a>
+            <Link href="/blog" className="hover:text-white transition-colors">Blog</Link>
           </div>
           <Link
             href="/analyze"
