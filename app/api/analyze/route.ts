@@ -10,20 +10,16 @@ type AllowedMimeType = (typeof ALLOWED_MIME_TYPES)[number];
 
 const MAX_BASE64_LENGTH = 13_500_000;
 
-const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
 const RATE_LIMIT = 20;
-const RATE_WINDOW_MS = 60 * 60 * 1000;
 
-function checkRateLimit(userId: string): boolean {
-  const now = Date.now();
-  const entry = rateLimitMap.get(userId);
-  if (!entry || now > entry.resetAt) {
-    rateLimitMap.set(userId, { count: 1, resetAt: now + RATE_WINDOW_MS });
-    return true;
-  }
-  if (entry.count >= RATE_LIMIT) return false;
-  entry.count++;
-  return true;
+async function checkRateLimit(userId: string): Promise<boolean> {
+  const windowStart = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+  const { count } = await getSupabase()
+    .from("analyses")
+    .select("*", { count: "exact", head: true })
+    .eq("user_id", userId)
+    .gte("created_at", windowStart);
+  return (count ?? 0) < RATE_LIMIT;
 }
 
 async function fetchNewsContext(query: string): Promise<string> {
@@ -62,7 +58,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  if (!checkRateLimit(userId)) {
+  if (!(await checkRateLimit(userId))) {
     return NextResponse.json(
       { error: "Too many requests. Please wait before analyzing another bet." },
       { status: 429 }

@@ -15,6 +15,10 @@ export async function PATCH(
   }
 
   const { id } = await params;
+  if (!id || !/^[0-9a-f-]{36}$/i.test(id)) {
+    return NextResponse.json({ error: "Invalid id" }, { status: 400 });
+  }
+
   const body = await req.json();
   const result: string | null = body.result ?? null;
 

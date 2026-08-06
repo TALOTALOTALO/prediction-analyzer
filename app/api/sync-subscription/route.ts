@@ -3,9 +3,18 @@ import { NextResponse } from "next/server";
 import { getStripe } from "@/lib/stripe";
 import { getSupabase } from "@/lib/supabase";
 
+const syncCooldowns = new Map<string, number>();
+
 export async function POST() {
   const { userId } = await auth();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  // Simple in-process cooldown — 60s between syncs per user
+  const lastSync = syncCooldowns.get(userId) ?? 0;
+  if (Date.now() - lastSync < 60_000) {
+    return NextResponse.json({ error: "Please wait before syncing again" }, { status: 429 });
+  }
+  syncCooldowns.set(userId, Date.now());
 
   const stripe = getStripe();
 

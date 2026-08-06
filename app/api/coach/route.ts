@@ -60,11 +60,25 @@ export async function POST(req: NextRequest) {
   const isActive = sub?.status === "active" || sub?.status === "trialing";
   if (!isActive) return new Response("Subscription required", { status: 403 });
 
-  const { messages } = await req.json() as {
-    messages: { role: "user" | "assistant"; content: string }[];
-  };
+  const body = await req.json();
+  const rawMessages = body?.messages;
 
-  if (!Array.isArray(messages) || messages.length === 0) {
+  if (!Array.isArray(rawMessages) || rawMessages.length === 0) {
+    return new Response("Invalid messages", { status: 400 });
+  }
+  if (rawMessages.length > 40) {
+    return new Response("Too many messages", { status: 400 });
+  }
+
+  const VALID_ROLES = new Set(["user", "assistant"]);
+  const messages: { role: "user" | "assistant"; content: string }[] = rawMessages
+    .filter((m) => VALID_ROLES.has(m?.role) && typeof m?.content === "string")
+    .map((m) => ({
+      role: m.role as "user" | "assistant",
+      content: (m.content as string).slice(0, 2000),
+    }));
+
+  if (messages.length === 0) {
     return new Response("Invalid messages", { status: 400 });
   }
 
