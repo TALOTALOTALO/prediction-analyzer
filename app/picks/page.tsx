@@ -384,6 +384,7 @@ export default function PicksPage() {
   useEffect(() => {
     if (!isLoaded) return;
     if (!isSignedIn) { setLoading(false); return; }
+    setLoading(true);
     fetch("/api/picks")
       .then((r) => {
         if (r.status === 403) { setForbidden(true); return null; }
@@ -492,7 +493,12 @@ export default function PicksPage() {
               <>
                 <div className="rounded-xl bg-white/5 p-3 mb-4">
                   <p className="text-white text-sm font-medium leading-snug mb-1">{tradingPick.event}</p>
-                  <p className="text-text-dim text-xs">{tradingPick.platform} · {tradingPick.position} @ {tradingPick.implied_probability ?? "—"}¢</p>
+                  <p className="text-text-dim text-xs">
+                    {tradingPick.platform} · {tradingPick.position} @{" "}
+                    {tradingPick.position === "NO"
+                      ? 100 - (tradingPick.implied_probability ?? 50)
+                      : (tradingPick.implied_probability ?? "—")}¢
+                  </p>
                 </div>
 
                 <p className="text-xs text-text-dim uppercase tracking-wider mb-2">Virtual stake</p>
