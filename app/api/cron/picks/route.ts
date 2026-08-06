@@ -1,10 +1,68 @@
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
+import { Resend } from "resend";
+import { render } from "@react-email/components";
 import { getSupabase } from "@/lib/supabase";
+import DailyPicksEmail from "@/emails/DailyPicksEmail";
 
 export const maxDuration = 300; // 5 min — Tavily + Claude adaptive thinking needs room
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+const resend = new Resend(process.env.RESEND_API_KEY);
+
+async function sendPicksDigest(picks: Record<string, unknown>[], dateLabel: string) {
+  if (!process.env.RESEND_API_KEY) return;
+
+  // Fetch all active subscriber user IDs from Supabase
+  const { data: subs } = await getSupabase()
+    .from("subscriptions")
+    .select("user_id")
+    .eq("status", "active");
+
+  if (!subs || subs.length === 0) return;
+
+  // Fetch emails from Clerk for each subscriber
+  const clerkSecretKey = process.env.CLERK_SECRET_KEY;
+  if (!clerkSecretKey) return;
+
+  const emails: string[] = [];
+  await Promise.all(
+    subs.map(async ({ user_id }: { user_id: string }) => {
+      try {
+        const res = await fetch(`https://api.clerk.com/v1/users/${user_id}`, {
+          headers: { Authorization: `Bearer ${clerkSecretKey}` },
+        });
+        if (!res.ok) return;
+        const user = await res.json();
+        const primary = user.email_addresses?.find(
+          (e: { id: string; email_address: string }) => e.id === user.primary_email_address_id
+        );
+        if (primary?.email_address) emails.push(primary.email_address);
+      } catch {
+        // skip failed lookups
+      }
+    })
+  );
+
+  if (emails.length === 0) return;
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const html = await render(DailyPicksEmail({ picks: picks as any, dateLabel }));
+
+  // Resend allows up to 50 recipients per call — batch if needed
+  const batchSize = 50;
+  for (let i = 0; i < emails.length; i += batchSize) {
+    const batch = emails.slice(i, i + batchSize);
+    await resend.emails.send({
+      from: "FadeMe.ai <picks@fademe.ai>",
+      to: batch,
+      subject: `Your ${picks.length} AI picks for ${dateLabel}`,
+      html,
+    });
+  }
+
+  console.log(`Picks digest sent to ${emails.length} subscribers`);
+}
 
 async function tavilySearch(query: string): Promise<string> {
   if (!process.env.TAVILY_API_KEY) return "";
@@ -158,6 +216,9 @@ Order by edge score descending. Be rigorous — if fewer than 3 strong picks exi
     console.error("Failed to save picks:", error);
     return NextResponse.json({ error: "Failed to save picks", detail: error.message, code: error.code }, { status: 500 });
   }
+
+  // Send email digest to all active subscribers (non-blocking)
+  sendPicksDigest(rows, todayLabel).catch((e) => console.error("Email digest failed:", e));
 
   return NextResponse.json({ success: true, date: today, count: rows.length });
 }
