@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import {
@@ -14,6 +14,10 @@ import {
   Zap,
   Lock,
   Sparkles,
+  CheckCircle,
+  XCircle,
+  MinusCircle,
+  Trophy,
 } from "lucide-react";
 import { UserButton } from "@clerk/nextjs";
 
@@ -38,6 +42,15 @@ interface Pick {
   key_risks: string[];
   market_inefficiency: string;
   confidence_level: string;
+  result: "won" | "lost" | "void" | null;
+}
+
+interface WinRecord {
+  wins: number;
+  losses: number;
+  voids: number;
+  winRate: number | null;
+  total: number;
 }
 
 const GRADE_CONFIG: Record<string, { border: string; text: string; bg: string; glow: string }> = {
@@ -47,7 +60,78 @@ const GRADE_CONFIG: Record<string, { border: string; text: string; bg: string; g
   C: { border: "border-yellow-500", text: "text-yellow-400", bg: "bg-yellow-500/10", glow: "" },
 };
 
-function PickCard({ pick }: { pick: Pick }) {
+function ResultBadge({ result }: { result: Pick["result"] }) {
+  if (result === "won") return (
+    <span className="flex items-center gap-1 text-xs font-bold text-[#00dc82] bg-[#00dc82]/10 px-2.5 py-1 rounded-full">
+      <CheckCircle size={11} /> Won
+    </span>
+  );
+  if (result === "lost") return (
+    <span className="flex items-center gap-1 text-xs font-bold text-red-400 bg-red-500/10 px-2.5 py-1 rounded-full">
+      <XCircle size={11} /> Lost
+    </span>
+  );
+  if (result === "void") return (
+    <span className="flex items-center gap-1 text-xs font-bold text-zinc-400 bg-white/5 px-2.5 py-1 rounded-full">
+      <MinusCircle size={11} /> Void
+    </span>
+  );
+  return (
+    <span className="text-xs text-text-dim bg-white/5 px-2.5 py-1 rounded-full">Pending</span>
+  );
+}
+
+function AdminControls({ pick, onUpdate }: { pick: Pick; onUpdate: (id: string, result: Pick["result"]) => void }) {
+  const [saving, setSaving] = useState(false);
+
+  const mark = async (result: "won" | "lost" | "void" | null) => {
+    setSaving(true);
+    try {
+      await fetch(`/api/picks/${pick.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ result }),
+      });
+      onUpdate(pick.id, result);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-1.5 flex-wrap">
+      <span className="text-xs text-text-dim mr-1">Mark:</span>
+      {(["won", "lost", "void"] as const).map((r) => (
+        <button
+          key={r}
+          onClick={() => mark(pick.result === r ? null : r)}
+          disabled={saving}
+          className={`text-xs px-2.5 py-1 rounded-full border transition-all disabled:opacity-50 ${
+            pick.result === r
+              ? r === "won"
+                ? "bg-[#00dc82]/20 border-[#00dc82]/50 text-[#00dc82] font-bold"
+                : r === "lost"
+                ? "bg-red-500/20 border-red-500/50 text-red-400 font-bold"
+                : "bg-white/10 border-white/20 text-white font-bold"
+              : "border-white/10 text-text-dim hover:border-white/30 hover:text-white"
+          }`}
+        >
+          {r.charAt(0).toUpperCase() + r.slice(1)}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function PickCard({
+  pick,
+  isAdmin,
+  onUpdate,
+}: {
+  pick: Pick;
+  isAdmin: boolean;
+  onUpdate: (id: string, result: Pick["result"]) => void;
+}) {
   const [expanded, setExpanded] = useState(false);
   const gs = GRADE_CONFIG[pick.grade] ?? GRADE_CONFIG["B"];
   const isBuy = pick.recommendation === "BUY";
@@ -59,7 +143,6 @@ function PickCard({ pick }: { pick: Pick }) {
         className="w-full text-left p-5 hover:bg-white/[0.02] transition-colors"
       >
         <div className="flex items-start gap-4">
-          {/* Grade + edge */}
           <div className="shrink-0 text-center">
             <div className={`w-14 h-14 rounded-xl border ${gs.border} ${gs.bg} flex items-center justify-center mb-1`}>
               <span className={`text-2xl font-black ${gs.text}`}>{pick.grade}</span>
@@ -68,13 +151,14 @@ function PickCard({ pick }: { pick: Pick }) {
           </div>
 
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-1">
+            <div className="flex items-center gap-2 mb-1 flex-wrap">
               {pick.category && (
                 <span className="text-xs px-2 py-0.5 rounded-full bg-white/5 text-text-dim">{pick.category}</span>
               )}
               {pick.platform && (
                 <span className="text-xs text-text-dim">{pick.platform}</span>
               )}
+              <ResultBadge result={pick.result} />
             </div>
             <p className="text-white font-semibold text-sm leading-snug mb-1">{pick.event}</p>
             <p className="text-text-dim text-xs">{pick.recommendation_reason}</p>
@@ -87,18 +171,20 @@ function PickCard({ pick }: { pick: Pick }) {
               {isBuy ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
               {pick.recommendation}
             </div>
-            {expanded ? (
-              <ChevronUp size={16} className="text-text-dim" />
-            ) : (
-              <ChevronDown size={16} className="text-text-dim" />
-            )}
+            {expanded ? <ChevronUp size={16} className="text-text-dim" /> : <ChevronDown size={16} className="text-text-dim" />}
           </div>
         </div>
       </button>
 
       {expanded && (
         <div className="border-t border-white/5 p-5 space-y-4">
-          {/* Probability comparison */}
+          {isAdmin && (
+            <div className="flex items-center gap-3 p-3 rounded-xl bg-white/5 border border-white/10">
+              <span className="text-xs text-text-dim font-medium">Admin</span>
+              <AdminControls pick={pick} onUpdate={onUpdate} />
+            </div>
+          )}
+
           <div className="space-y-2">
             <ProbBar label="Market Implied" value={pick.implied_probability} color="bg-blue-500" />
             <ProbBar label="AI True Estimate" value={pick.true_odds} color="bg-[#00dc82]" />
@@ -111,7 +197,6 @@ function PickCard({ pick }: { pick: Pick }) {
             </div>
           </div>
 
-          {/* Bet details row */}
           <div className="flex gap-4 text-xs flex-wrap">
             {pick.position && (
               <div><p className="text-text-dim mb-0.5">Position</p><p className="text-white font-semibold">{pick.position}</p></div>
@@ -179,9 +264,40 @@ function ProbBar({ label, value, color }: { label: string; value: number; color:
   );
 }
 
+function RecordBar({ record }: { record: WinRecord }) {
+  if (record.total === 0) return null;
+
+  return (
+    <div className="rounded-2xl border border-[#00dc82]/20 bg-[#00dc82]/5 px-5 py-4 flex items-center gap-4 flex-wrap">
+      <div className="flex items-center gap-2">
+        <Trophy size={16} className="text-[#00dc82]" />
+        <span className="text-sm font-semibold text-white">AI Record</span>
+      </div>
+      <div className="flex items-center gap-3 text-sm">
+        <span className="text-[#00dc82] font-bold">{record.wins}W</span>
+        <span className="text-text-dim">-</span>
+        <span className="text-red-400 font-bold">{record.losses}L</span>
+        {record.voids > 0 && (
+          <>
+            <span className="text-text-dim">-</span>
+            <span className="text-zinc-400 font-bold">{record.voids}V</span>
+          </>
+        )}
+      </div>
+      {record.winRate !== null && (
+        <span className="ml-auto text-sm font-bold text-white">
+          {record.winRate}% <span className="text-text-dim font-normal">win rate</span>
+        </span>
+      )}
+    </div>
+  );
+}
+
 export default function PicksPage() {
   const [picks, setPicks] = useState<Pick[]>([]);
   const [pickDate, setPickDate] = useState<string | null>(null);
+  const [record, setRecord] = useState<WinRecord | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
   const [forbidden, setForbidden] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -195,10 +311,29 @@ export default function PicksPage() {
       .then((d) => {
         if (!d) return;
         if (d.error) setError(d.error);
-        else { setPicks(d.picks ?? []); setPickDate(d.pickDate); }
+        else {
+          setPicks(d.picks ?? []);
+          setPickDate(d.pickDate);
+          setRecord(d.record ?? null);
+          setIsAdmin(d.isAdmin ?? false);
+        }
       })
       .catch(() => setError("Failed to load picks"))
       .finally(() => setLoading(false));
+  }, []);
+
+  const handleResultUpdate = useCallback((id: string, result: Pick["result"]) => {
+    setPicks((prev) => prev.map((p) => p.id === id ? { ...p, result } : p));
+    // Recompute record locally
+    setRecord((prev) => {
+      if (!prev) return prev;
+      // Re-fetch to get accurate record
+      fetch("/api/picks")
+        .then((r) => r.json())
+        .then((d) => { if (d.record) setRecord(d.record); })
+        .catch(() => {});
+      return prev;
+    });
   }, []);
 
   const formattedDate = pickDate
@@ -226,7 +361,6 @@ export default function PicksPage() {
       </nav>
 
       <div className="max-w-3xl mx-auto px-4 py-10">
-        {/* Header */}
         <div className="mb-8">
           <div className="flex items-center gap-2 mb-2">
             <Sparkles size={18} className="text-[#00dc82]" />
@@ -293,8 +427,15 @@ export default function PicksPage() {
 
         {!loading && picks.length > 0 && (
           <div className="space-y-4">
+            {record && <RecordBar record={record} />}
+
             {picks.map((pick) => (
-              <PickCard key={pick.id} pick={pick} />
+              <PickCard
+                key={pick.id}
+                pick={pick}
+                isAdmin={isAdmin}
+                onUpdate={handleResultUpdate}
+              />
             ))}
             <p className="text-center text-xs text-text-dim pt-4">
               Picks are AI-generated for informational purposes only. Not financial advice.

@@ -16,6 +16,8 @@ export async function GET() {
   const isActive = sub?.status === "active" || sub?.status === "trialing";
   if (!isActive) return NextResponse.json({ error: "Subscription required" }, { status: 403 });
 
+  const isAdmin = userId === process.env.ADMIN_USER_ID;
+
   // Fetch most recent pick date's picks
   const { data, error } = await getSupabase()
     .from("daily_picks")
@@ -29,11 +31,24 @@ export async function GET() {
     return NextResponse.json({ error: "Failed to fetch picks" }, { status: 500 });
   }
 
-  // Return only the most recent date's picks
   const mostRecentDate = data?.[0]?.pick_date ?? null;
   const picks = mostRecentDate
     ? data.filter((p) => p.pick_date === mostRecentDate)
     : [];
 
-  return NextResponse.json({ picks, pickDate: mostRecentDate });
+  // Compute all-time record from every pick that has a result
+  const { data: allResolved } = await getSupabase()
+    .from("daily_picks")
+    .select("result")
+    .not("result", "is", null);
+
+  const wins = allResolved?.filter((p) => p.result === "won").length ?? 0;
+  const losses = allResolved?.filter((p) => p.result === "lost").length ?? 0;
+  const voids = allResolved?.filter((p) => p.result === "void").length ?? 0;
+  const total = wins + losses;
+  const winRate = total > 0 ? Math.round((wins / total) * 100) : null;
+
+  const record = { wins, losses, voids, winRate, total };
+
+  return NextResponse.json({ picks, pickDate: mostRecentDate, record, isAdmin });
 }
