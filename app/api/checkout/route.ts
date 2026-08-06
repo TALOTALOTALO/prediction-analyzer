@@ -38,14 +38,24 @@ export async function POST() {
       cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/analyze`,
     };
 
-    if (process.env.STRIPE_INTRO_COUPON_ID) {
-      sessionParams.discounts = [{ coupon: process.env.STRIPE_INTRO_COUPON_ID }];
-    }
-
     if (existing?.stripe_customer_id) {
       sessionParams.customer = existing.stripe_customer_id;
     } else if (email) {
       sessionParams.customer_email = email;
+    }
+
+    // Try with intro coupon first; fall back to base price if coupon is invalid
+    if (process.env.STRIPE_INTRO_COUPON_ID) {
+      try {
+        const session = await stripe.checkout.sessions.create({
+          ...sessionParams,
+          discounts: [{ coupon: process.env.STRIPE_INTRO_COUPON_ID }],
+        }, { idempotencyKey: `checkout-coupon-${userId}-${new Date().toISOString().slice(0, 10)}` });
+        return NextResponse.json({ url: session.url });
+      } catch (couponErr) {
+        console.warn("Checkout with coupon failed, retrying without:", couponErr instanceof Error ? couponErr.message : couponErr);
+        // Fall through to create session without coupon
+      }
     }
 
     const session = await stripe.checkout.sessions.create(sessionParams, {
@@ -55,6 +65,7 @@ export async function POST() {
     return NextResponse.json({ url: session.url });
   } catch (err) {
     console.error("Checkout error:", err);
-    return NextResponse.json({ error: "Failed to create checkout session" }, { status: 500 });
+    const message = err instanceof Error ? err.message : "Failed to create checkout session";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
