@@ -11,6 +11,7 @@ const isProtectedRoute = createRouteMatcher([
   "/api/checkout",
   "/api/portal",
   "/api/subscription",
+  "/api/sync-subscription",
   "/api/paper-trades(.*)",
 ]);
 

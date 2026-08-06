@@ -108,6 +108,7 @@ function AnalyzePageInner() {
   const [subStatus, setSubStatus] = useState<SubStatus>("loading");
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [portalLoading, setPortalLoading] = useState(false);
+  const [syncLoading, setSyncLoading] = useState(false);
 
   const [dashPicks, setDashPicks] = useState<DashboardPick[]>([]);
   const [recentAnalyses, setRecentAnalyses] = useState<Array<{
@@ -167,6 +168,21 @@ function AnalyzePageInner() {
       else setPortalLoading(false);
     } catch {
       setPortalLoading(false);
+    }
+  };
+
+  const restoreSubscription = async () => {
+    setSyncLoading(true);
+    try {
+      const res = await fetch("/api/sync-subscription", { method: "POST" });
+      const data = await res.json();
+      if (data.synced) {
+        window.location.reload();
+      } else {
+        setSyncLoading(false);
+      }
+    } catch {
+      setSyncLoading(false);
     }
   };
 
@@ -359,6 +375,16 @@ function AnalyzePageInner() {
               </button>
             </div>
             <p className="text-xs text-text-dim">Secure checkout via Stripe. No hidden fees.</p>
+            <p className="text-xs text-text-dim mt-3">
+              Already subscribed?{" "}
+              <button
+                onClick={restoreSubscription}
+                disabled={syncLoading}
+                className="text-white underline underline-offset-2 hover:text-green-bright transition-colors disabled:opacity-50"
+              >
+                {syncLoading ? "Restoring..." : "Restore subscription"}
+              </button>
+            </p>
           </div>
         )}
 
@@ -670,7 +696,12 @@ function AnalyzePageInner() {
               <div className="sticky bottom-4 z-10 rounded-2xl border border-[#00dc82]/40 bg-[#070d1a]/95 backdrop-blur-md p-4 flex items-center justify-between gap-4 shadow-[0_0_30px_rgba(0,220,130,0.1)]">
                 <div>
                   <p className="text-white font-semibold text-sm">You&apos;ve used your free analysis</p>
-                  <p className="text-text-dim text-xs">Get unlimited analyses + daily AI picks for $1/week</p>
+                  <p className="text-text-dim text-xs">
+                    Get unlimited analyses + daily AI picks for $1/week ·{" "}
+                    <button onClick={restoreSubscription} disabled={syncLoading} className="underline underline-offset-2 hover:text-white transition-colors disabled:opacity-50">
+                      {syncLoading ? "Restoring..." : "Already subscribed?"}
+                    </button>
+                  </p>
                 </div>
                 <button
                   onClick={startCheckout}
