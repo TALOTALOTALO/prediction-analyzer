@@ -112,7 +112,7 @@ export default function LandingPage() {
                 href="/analyze"
                 className="px-4 py-2 rounded-lg bg-green-bright text-[#070d1a] font-semibold text-sm hover:brightness-110 transition-all"
               >
-                Try Free
+                Try It Free
               </Link>
             </div>
           )}
@@ -139,9 +139,9 @@ export default function LandingPage() {
             you commit.
           </h1>
           <p className="text-text-dim text-lg md:text-xl max-w-2xl mx-auto mb-5 leading-relaxed">
-            Upload any prediction market screenshot. FadeMe grades your bet, estimates true odds,
-            and tells you whether to buy, hold, or <span className="text-white font-semibold">fade</span> — in seconds.
-            Find the bets that won&apos;t hit and profit by fading them.
+            Upload your prediction market screenshot. Get your bet graded, your true odds estimated,
+            and a clear verdict — buy, hold, or <span className="text-white font-semibold">fade</span> — in seconds.
+            Stop guessing. Start trading with an actual edge.
           </p>
 
           <p className="text-green-bright font-semibold tracking-[0.2em] uppercase text-sm mb-10">
@@ -153,7 +153,7 @@ export default function LandingPage() {
               href="/analyze"
               className="flex items-center gap-2 px-7 py-3.5 rounded-xl bg-green-bright text-[#070d1a] font-bold text-base hover:brightness-110 transition-all w-full sm:w-auto justify-center"
             >
-              Analyze a Bet Free
+              Analyze Your Bet Free
               <ArrowRight size={18} />
             </Link>
             <a
@@ -175,7 +175,7 @@ export default function LandingPage() {
           <div className="flex flex-col sm:flex-row items-center justify-center gap-6 text-sm text-text-dim">
             <div className="flex items-center gap-1.5">
               <CheckCircle size={14} className="text-green-bright" />
-              We never touch your money
+              Your money stays yours — always
             </div>
             <div className="flex items-center gap-1.5">
               <CheckCircle size={14} className="text-green-bright" />
@@ -183,7 +183,7 @@ export default function LandingPage() {
             </div>
             <div className="flex items-center gap-1.5">
               <CheckCircle size={14} className="text-green-bright" />
-              Submit a screenshot · get instant analysis
+              Upload your screenshot · get your edge in seconds
             </div>
           </div>
         </div>
@@ -279,7 +279,7 @@ export default function LandingPage() {
                 <h3 className="font-bold text-white">AI probability analysis on every bet</h3>
               </div>
               <p className="text-text-dim text-sm leading-relaxed">
-                Upload any screenshot. Our AI instantly calculates the true probability, compares it to the market price, and tells you whether you have an edge — or whether the market has one on you.
+                Upload your screenshot and get your true probability instantly. See whether your bet has real edge — or whether the market is pricing you out before you even click buy.
               </p>
             </div>
             <div className="rounded-2xl border border-green-bright/20 bg-green-dim p-6">
@@ -290,7 +290,7 @@ export default function LandingPage() {
                 <h3 className="font-bold text-white">Expert AI coach that thinks like a sharp</h3>
               </div>
               <p className="text-text-dim text-sm leading-relaxed">
-                Our AI coach is trained on sharp bettor strategy — Kelly sizing, fade theory, market inefficiency. Ask it anything. It won&apos;t tell you what to feel — it&apos;ll tell you what the math says.
+                Your personal sharp bettor coach, available anytime. Ask it about your position, your sizing, your strategy. It thinks in Kelly, speaks in edge, and tells you exactly what your numbers mean.
               </p>
             </div>
           </div>
@@ -324,7 +324,7 @@ export default function LandingPage() {
               </div>
               <h3 className="font-bold text-white mb-2">Find the Edge</h3>
               <p className="text-text-dim text-sm leading-relaxed">
-                FadeMe compares the market&apos;s implied probability against our AI&apos;s true estimate. A big gap = a clear fade. Upload a screenshot and we do the math in seconds.
+                Upload your screenshot and see your true probability versus what the market is pricing. A big gap means you have an edge. A small gap means you&apos;re paying fair value — or worse.
               </p>
             </div>
             <div className="rounded-2xl border border-border-subtle bg-card p-6">
@@ -382,9 +382,9 @@ export default function LandingPage() {
             <span className="text-green-bright">You make the plays.</span>
           </h2>
           <p className="text-text-dim text-center mb-14 max-w-2xl mx-auto">
-            Every morning our AI scans hundreds of markets across Kalshi, Polymarket, and PredictIt,
-            cross-references live news sources, and surfaces only the highest-conviction plays.
-            No guesswork — just picks backed by real analysis, delivered to your inbox daily.
+            Every morning, your AI scans hundreds of markets across Kalshi, Polymarket, and PredictIt,
+            cross-references live news, and surfaces only the highest-conviction plays.
+            Skip the guesswork — your daily edge, delivered to your inbox before the market moves.
           </p>
 
           <div className="grid md:grid-cols-2 gap-8 items-center">
@@ -394,7 +394,7 @@ export default function LandingPage() {
                 {
                   step: "01",
                   title: "200+ markets scanned daily",
-                  desc: "Our AI reads every open contract across Kalshi, Polymarket, and PredictIt — prices, volume, liquidity, and expiry.",
+                  desc: "Your AI reads every open contract across Kalshi, Polymarket, and PredictIt — prices, volume, liquidity, and expiry — so you don't have to.",
                 },
                 {
                   step: "02",
@@ -404,7 +404,7 @@ export default function LandingPage() {
                 {
                   step: "03",
                   title: "Only S and A grades make the cut",
-                  desc: "We filter hard. If there's no genuine edge, we don't pick it. Subscribers get 3–6 high-conviction plays — not a list of maybes.",
+                  desc: "Your picks are filtered hard. If there's no genuine edge, it doesn't make your list. You get 3–6 high-conviction plays — not a pile of maybes.",
                 },
               ].map(({ step, title, desc }) => (
                 <div key={step} className="flex items-start gap-4">
@@ -423,7 +423,7 @@ export default function LandingPage() {
                 className="inline-flex items-center gap-2 mt-2 px-5 py-2.5 rounded-xl bg-green-bright text-[#070d1a] font-bold text-sm hover:brightness-110 transition-all"
               >
                 <Zap size={14} />
-                Get Daily Picks — $1 First Week
+                Get Your Daily Picks — $1 First Week
               </Link>
             </div>
 
@@ -441,7 +441,7 @@ export default function LandingPage() {
             Every edge matters.
           </h2>
           <p className="text-text-dim text-center mb-14 max-w-xl mx-auto">
-            FadeMe gives you institutional-grade analysis on every bet, automatically.
+            Get institutional-grade analysis on every one of your bets, automatically.
           </p>
 
           <div className="grid sm:grid-cols-2 gap-4">
@@ -601,16 +601,16 @@ export default function LandingPage() {
         <div className="max-w-5xl mx-auto">
           <SectionLabel>Zero Risk to You</SectionLabel>
           <h2 className="text-3xl font-bold text-center mb-10">
-            We analyze. You decide. Your accounts stay yours.
+            Your edge. Your decisions. Your accounts — always.
           </h2>
           <div className="grid sm:grid-cols-3 gap-5">
             <div className="rounded-2xl border border-border-subtle bg-card p-6 flex flex-col items-center text-center gap-3">
               <div className="w-12 h-12 rounded-2xl bg-green-dim border border-green-bright/20 flex items-center justify-center">
                 <Lock size={22} className="text-green-bright" />
               </div>
-              <h3 className="font-bold text-white">We never touch your money</h3>
+              <h3 className="font-bold text-white">Your money stays yours</h3>
               <p className="text-text-dim text-sm leading-relaxed">
-                FadeMe is purely an analysis tool. We have no ability to place bets, move funds, or interact with your trading accounts in any way.
+                FadeMe is a pure analysis tool. Your funds, your bets, your accounts — we have zero ability to touch any of it.
               </p>
             </div>
             <div className="rounded-2xl border border-border-subtle bg-card p-6 flex flex-col items-center text-center gap-3">
@@ -628,7 +628,7 @@ export default function LandingPage() {
               </div>
               <h3 className="font-bold text-white">Screenshots aren&apos;t stored</h3>
               <p className="text-text-dim text-sm leading-relaxed">
-                Screenshots are not stored by FadeMe. They are sent to our AI provider for analysis only, and are subject to their standard data retention policy.
+                Your screenshots are never stored. They go to our AI provider for analysis only and are discarded immediately — your privacy is protected end to end.
               </p>
             </div>
           </div>
@@ -690,7 +690,7 @@ export default function LandingPage() {
             Questions? We&apos;ve got answers.
           </h2>
           <p className="text-text-dim text-center mb-10 max-w-xl mx-auto">
-            Everything you need to know before your first analysis.
+            Everything you need to know before your first bet analysis.
           </p>
           <div className="space-y-3 mb-10">
             {FAQS.map((faq) => (
@@ -700,13 +700,13 @@ export default function LandingPage() {
           <div className="rounded-2xl border border-green-bright/20 bg-green-dim p-6 flex flex-col sm:flex-row items-center justify-between gap-4">
             <div>
               <p className="font-bold text-white mb-0.5">Still have questions?</p>
-              <p className="text-text-dim text-sm">Your first analysis is just $1. Try it risk-free.</p>
+              <p className="text-text-dim text-sm">Your first week is just $1. Try it risk-free.</p>
             </div>
             <Link
               href="/analyze"
               className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-green-bright text-[#070d1a] font-bold text-sm hover:brightness-110 transition-all shrink-0 whitespace-nowrap"
             >
-              Get Started <ArrowRight size={15} />
+              Analyze Your First Bet <ArrowRight size={15} />
             </Link>
           </div>
         </div>
@@ -719,13 +719,13 @@ export default function LandingPage() {
             Ready to find your edge?
           </h2>
           <p className="text-text-dim text-lg mb-8">
-            Drop your first screenshot free. No signup needed.
+            Upload your first screenshot free. Your edge is one analysis away.
           </p>
           <Link
             href="/analyze"
             className="inline-flex items-center gap-2 px-8 py-4 rounded-xl bg-green-bright text-[#070d1a] font-bold text-lg hover:brightness-110 transition-all"
           >
-            Analyze a Bet Now
+            Analyze Your Bet Now
             <ArrowRight size={20} />
           </Link>
         </div>
@@ -958,7 +958,7 @@ const STEPS = [
   {
     number: "2",
     title: "Analyze",
-    description: "Our AI reads your bet, calculates the true probability, and grades it against the market price.",
+    description: "Your bet gets read, your true probability calculated, and your grade delivered against the market price — in seconds.",
     icon: BarChart2,
   },
   {
@@ -973,13 +973,13 @@ const FEATURES = [
   {
     index: 0,
     title: "AI Bet Grading",
-    description: "Every bet gets an S–F grade based on the edge between the market's implied probability and our AI's true estimate.",
+    description: "Every bet you upload gets an S–F grade based on the gap between the market's implied probability and your true estimated edge.",
     icon: BarChart2,
   },
   {
     index: 1,
     title: "True Odds Estimation",
-    description: "We analyze the underlying event, historical patterns, and market sentiment to estimate what the real probability should be.",
+    description: "Your underlying event gets analyzed — historical patterns, market sentiment, live news — so you know what the real probability should be.",
     icon: Target,
   },
   {
@@ -1003,19 +1003,19 @@ const FAQS = [
   },
   {
     question: "How does FadeMe estimate the true probability?",
-    answer: "We run your screenshot through Claude Opus, Anthropic's most advanced AI model, which combines the extracted bet details with live web intelligence pulled in real-time via Tavily search. The AI weighs current news, historical context, and market dynamics to arrive at an independent probability estimate — then compares it to the market price.",
+    answer: "Your screenshot is run through Claude Opus, Anthropic's most advanced AI model, which combines your bet details with live web intelligence pulled in real-time. It weighs current news, historical context, and market dynamics to arrive at an independent probability estimate — then compares it to what you're being offered.",
   },
   {
     question: "Which prediction market platforms does FadeMe support?",
-    answer: "Any platform you can screenshot. Kalshi, Polymarket, PredictIt, Manifold, Metaculus, Augur, sports books, political markets — if it shows odds or a probability on screen, we can read it. No API integrations or account connections required.",
+    answer: "Any platform you can screenshot. Kalshi, Polymarket, PredictIt, Manifold, Metaculus, Augur, sports books, political markets — if your screen shows odds or a probability, we can read it. No API integrations or account connections required.",
   },
   {
     question: "What does BUY, HOLD, or FADE actually mean?",
-    answer: "BUY means our AI sees meaningful edge in your favor and the bet is worth taking. HOLD means it's roughly fair value — not a disaster, but no real edge. FADE means the market has priced you out, or worse, is pricing against reality. A FADE on a YES position means you should consider taking the NO side instead.",
+    answer: "BUY means your bet has meaningful edge in your favor — worth taking. HOLD means it's roughly fair value — not a disaster, but no real edge for you. FADE means the market has priced you out, or is pricing against reality. A FADE on your YES position means you should consider flipping to the NO side instead.",
   },
   {
     question: "How accurate is the analysis?",
-    answer: "FadeMe is a decision-support tool, not a crystal ball. It uses one of the most advanced AI models available combined with live data to surface edge and risk — but prediction markets are inherently uncertain. We give you a sharper framework for making decisions, not guarantees. Always size positions appropriately and never bet more than you can afford to lose.",
+    answer: "FadeMe is a decision-support tool, not a crystal ball. It uses one of the most advanced AI models available combined with live data to surface your edge and your risk — but prediction markets are inherently uncertain. You get a sharper framework for making decisions, not guarantees. Always size your positions appropriately and never bet more than you can afford to lose.",
   },
   {
     question: "Does FadeMe work for sports prediction markets?",
@@ -1023,11 +1023,11 @@ const FAQS = [
   },
   {
     question: "Do you store my screenshots or trading data?",
-    answer: "Screenshots are never stored by FadeMe. They're sent directly to our AI provider (Anthropic) for analysis and discarded immediately after. We never see your prediction market login, account balance, or trade history.",
+    answer: "Your screenshots are never stored. They're sent directly to our AI provider (Anthropic) for analysis and discarded immediately. We never see your prediction market login, your account balance, or your trade history.",
   },
   {
     question: "How is this better than just doing my own research?",
-    answer: "Speed and objectivity. A thorough manual analysis — reading the news, estimating probabilities, identifying the bear case — takes 20-40 minutes per bet. FadeMe does it in under 30 seconds with zero emotional bias. You still make the final call; we just remove the grunt work and surface what matters.",
+    answer: "Speed and objectivity. A thorough manual analysis of your bet — reading the news, estimating probabilities, finding the bear case — takes 20–40 minutes. FadeMe does it in under 30 seconds with zero emotional bias. You still make the final call; you just get to skip the grunt work.",
   },
   {
     question: "How do I cancel my subscription?",
