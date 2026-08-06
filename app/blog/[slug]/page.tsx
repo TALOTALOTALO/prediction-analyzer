@@ -36,7 +36,29 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const { slug } = await params;
   const post = await getPost(slug);
   if (!post) return {};
-  return { title: `${post.title} — FadeMe`, description: post.excerpt };
+
+  const ogImage = post.mainImage
+    ? urlFor(post.mainImage).width(1200).height(630).url()
+    : "https://www.fademe.ai/logo-full.png";
+
+  return {
+    title: `${post.title} — FadeMe`,
+    description: post.excerpt,
+    openGraph: {
+      title: post.title,
+      description: post.excerpt,
+      type: "article",
+      publishedTime: post.publishedAt,
+      url: `https://www.fademe.ai/blog/${slug}`,
+      images: [{ url: ogImage, width: 1200, height: 630, alt: post.title }],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: post.title,
+      description: post.excerpt,
+      images: [ogImage],
+    },
+  };
 }
 
 export default async function PostPage({ params }: { params: Promise<{ slug: string }> }) {
@@ -44,8 +66,27 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
   const post = await getPost(slug);
   if (!post) notFound();
 
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Article",
+    headline: post.title,
+    description: post.excerpt,
+    datePublished: post.publishedAt,
+    dateModified: post.publishedAt,
+    author: { "@type": "Organization", name: "FadeMe", url: "https://www.fademe.ai" },
+    publisher: {
+      "@type": "Organization",
+      name: "FadeMe",
+      url: "https://www.fademe.ai",
+      logo: { "@type": "ImageObject", url: "https://www.fademe.ai/logo-icon.png" },
+    },
+    mainEntityOfPage: { "@type": "WebPage", "@id": `https://www.fademe.ai/blog/${slug}` },
+    ...(post.mainImage && { image: urlFor(post.mainImage).width(1200).height(630).url() }),
+  };
+
   return (
     <div className="min-h-screen bg-bg">
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <nav className="border-b border-border-subtle px-6 py-4">
         <div className="max-w-3xl mx-auto flex items-center justify-between">
           <Link href="/blog" className="flex items-center gap-2 text-text-dim hover:text-white transition-colors">
