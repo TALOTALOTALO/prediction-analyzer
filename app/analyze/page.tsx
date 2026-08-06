@@ -259,6 +259,9 @@ function AnalyzePageInner() {
                   <Sparkles size={12} />
                   Today&apos;s Picks
                 </Link>
+                <Link href="/coach" className="flex items-center gap-1 text-xs text-text-dim hover:text-white transition-colors">
+                  AI Coach
+                </Link>
                 <Link href="/history" className="text-xs text-text-dim hover:text-white transition-colors">
                   History
                 </Link>
