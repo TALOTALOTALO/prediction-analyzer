@@ -50,17 +50,17 @@ async function sendPicksDigest(picks: Record<string, unknown>[], dateLabel: stri
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const html = await render(DailyPicksEmail({ picks: picks as any, dateLabel }));
 
-  // Resend allows up to 50 recipients per call — batch if needed
-  const batchSize = 50;
-  for (let i = 0; i < emails.length; i += batchSize) {
-    const batch = emails.slice(i, i + batchSize);
-    await resend.emails.send({
-      from: "FadeMe.ai <picks@fademe.ai>",
-      to: batch,
-      subject: `Your ${picks.length} AI picks for ${dateLabel}`,
-      html,
-    });
-  }
+  // Send individually to avoid exposing subscriber addresses to each other
+  await Promise.all(
+    emails.map((email) =>
+      resend.emails.send({
+        from: "FadeMe.ai <picks@fademe.ai>",
+        to: email,
+        subject: `Your ${picks.length} AI picks for ${dateLabel}`,
+        html,
+      }).catch((e) => console.error(`Failed to send picks to ${email}:`, e))
+    )
+  );
 
   console.log(`Picks digest sent to ${emails.length} subscribers`);
 }

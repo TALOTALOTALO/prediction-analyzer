@@ -54,8 +54,10 @@ export async function POST(req: NextRequest) {
   const body = await req.json();
   const { pick_id, virtual_stake } = body as { pick_id: string; virtual_stake: number };
 
-  if (!pick_id) return NextResponse.json({ error: "pick_id required" }, { status: 400 });
-  if (!VALID_STAKES.includes(virtual_stake)) {
+  if (!pick_id || !/^[0-9a-f-]{36}$/i.test(pick_id)) {
+    return NextResponse.json({ error: "Invalid pick_id" }, { status: 400 });
+  }
+  if (typeof virtual_stake !== "number" || !VALID_STAKES.includes(virtual_stake)) {
     return NextResponse.json({ error: "Invalid stake amount" }, { status: 400 });
   }
 
