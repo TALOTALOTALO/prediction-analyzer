@@ -364,13 +364,13 @@ export default function PicksPage() {
         <div className="mb-8">
           <div className="flex items-center gap-2 mb-2">
             <Sparkles size={18} className="text-[#00dc82]" />
-            <span className="text-xs font-semibold text-[#00dc82] uppercase tracking-wider">AI-Curated</span>
+            <span className="text-xs font-semibold text-[#00dc82] uppercase tracking-wider">AI-Curated · Updated Daily</span>
           </div>
           <h1 className="text-2xl font-bold mb-1">Today&apos;s Picks</h1>
-          <p className="text-text-dim text-sm">
-            {formattedDate
-              ? `Our AI scanned hundreds of markets and surfaced the highest-conviction plays for ${formattedDate}.`
-              : "Our AI scans hundreds of markets and surfaces the highest-conviction plays daily."}
+          <p className="text-text-dim text-sm leading-relaxed">
+            Our AI scans hundreds of markets, news sources, and live data every day and surfaces only the highest-conviction plays.
+            No guesswork — just picks backed by real analysis
+            {formattedDate ? ` for ${formattedDate}` : ""}.
           </p>
         </div>
 
