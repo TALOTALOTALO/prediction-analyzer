@@ -147,10 +147,14 @@ Order by edge score descending. Be rigorous — if fewer than 3 strong picks exi
     confidence_level: p.confidenceLevel,
   }));
 
+  if (rows.length === 0) {
+    return NextResponse.json({ success: true, date: today, count: 0, message: "No picks generated" });
+  }
+
   const { error } = await getSupabase().from("daily_picks").insert(rows);
   if (error) {
     console.error("Failed to save picks:", error);
-    return NextResponse.json({ error: "Failed to save picks" }, { status: 500 });
+    return NextResponse.json({ error: "Failed to save picks", detail: error.message, code: error.code }, { status: 500 });
   }
 
   return NextResponse.json({ success: true, date: today, count: rows.length });
