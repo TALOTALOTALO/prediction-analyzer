@@ -426,16 +426,10 @@ export default function PicksPage() {
 
   const handleResultUpdate = useCallback((id: string, result: Pick["result"]) => {
     setPicks((prev) => prev.map((p) => p.id === id ? { ...p, result } : p));
-    // Recompute record locally
-    setRecord((prev) => {
-      if (!prev) return prev;
-      // Re-fetch to get accurate record
-      fetch("/api/picks")
-        .then((r) => r.json())
-        .then((d) => { if (d.record) setRecord(d.record); })
-        .catch(() => {});
-      return prev;
-    });
+    fetch("/api/picks")
+      .then((r) => r.json())
+      .then((d) => { if (d.record) setRecord(d.record); })
+      .catch(() => {});
   }, []);
 
   const formattedDate = pickDate
@@ -459,7 +453,7 @@ export default function PicksPage() {
             </span>
           </Link>
           <div className="flex items-center gap-3">
-            {isSignedIn && (
+            {isLoaded && isSignedIn && (
               <Link href="/portfolio" className="flex items-center gap-1.5 text-sm text-text-dim hover:text-white transition-colors">
                 <BarChart2 size={15} />
                 <span className="hidden sm:inline">Portfolio</span>
@@ -521,7 +515,12 @@ export default function PicksPage() {
                 <div className="flex items-center justify-between text-xs text-text-dim mb-4">
                   <span>If this wins:</span>
                   <span className="text-[#00dc82] font-bold">
-                    +${((tradeStake * (100 / (tradingPick.implied_probability ?? 50))) - tradeStake).toFixed(2)} profit
+                    {(() => {
+                      const entryPrice = tradingPick.position === "NO"
+                        ? 100 - (tradingPick.implied_probability ?? 50)
+                        : (tradingPick.implied_probability ?? 50);
+                      return `+$${((tradeStake * (100 / Math.max(entryPrice, 1))) - tradeStake).toFixed(2)} profit`;
+                    })()}
                   </span>
                 </div>
 
@@ -609,7 +608,7 @@ export default function PicksPage() {
           </div>
         )}
 
-        {!loading && !forbidden && !error && picks.length === 0 && (
+        {!loading && isSignedIn && !forbidden && !error && picks.length === 0 && (
           <div className="text-center py-24">
             <div className="w-16 h-16 rounded-2xl bg-white/5 border border-border-subtle flex items-center justify-center mx-auto mb-5">
               <Sparkles size={28} className="text-text-dim" />
@@ -653,7 +652,7 @@ export default function PicksPage() {
                 <FreePickCard
                   key={pick.id}
                   pick={pick}
-                  onTrade={(p) => { setTradingPick(p); setTradeSuccess(false); setTradeError(null); }}
+                  onTrade={(p) => { setTradingPick(p); setTradeStake(10); setTradeSuccess(false); setTradeError(null); }}
                 />
               ) : (
                 <PickCard

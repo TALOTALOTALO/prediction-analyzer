@@ -17,10 +17,12 @@ export async function GET() {
   const isActive = sub?.status === "active" || sub?.status === "trialing";
   const isAdmin = userId === process.env.ADMIN_USER_ID;
 
-  // Fetch most recent picks — full fields for subscribers, limited for free users
+  const isPro = isActive || isAdmin;
+
+  // Fetch most recent picks — full fields for subscribers/admin, limited for free users
   const { data, error } = await getSupabase()
     .from("daily_picks")
-    .select(isActive ? "*" : FREE_FIELDS)
+    .select(isPro ? "*" : FREE_FIELDS)
     .order("pick_date", { ascending: false })
     .order("edge_score", { ascending: false })
     .limit(20);
@@ -33,9 +35,9 @@ export async function GET() {
   const mostRecentDate = data?.[0]?.pick_date ?? null;
   const picks = mostRecentDate ? data.filter((p) => p.pick_date === mostRecentDate) : [];
 
-  // Win record — only for subscribers (free users see it as a conversion hook)
+  // Win record — only for subscribers/admin (free users see it as a conversion hook)
   let record = null;
-  if (isActive) {
+  if (isPro) {
     const { data: allResolved } = await getSupabase()
       .from("daily_picks")
       .select("result")
@@ -49,5 +51,5 @@ export async function GET() {
     record = { wins, losses, voids, winRate: total > 0 ? Math.round((wins / total) * 100) : null, total };
   }
 
-  return NextResponse.json({ picks, pickDate: mostRecentDate, record, isAdmin, isFree: !isActive });
+  return NextResponse.json({ picks, pickDate: mostRecentDate, record, isAdmin, isFree: !isPro });
 }
