@@ -142,7 +142,7 @@ export default function LandingPage() {
             Analyze. Predict. Fade.
           </p>
 
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mb-12">
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mb-5">
             <Link
               href="/analyze"
               className="flex items-center gap-2 px-7 py-3.5 rounded-xl bg-green-bright text-[#070d1a] font-bold text-base hover:brightness-110 transition-all w-full sm:w-auto justify-center"
@@ -157,6 +157,13 @@ export default function LandingPage() {
               See How It Works
             </a>
           </div>
+
+          <p className="text-text-dim text-sm mb-10">
+            Not ready to commit?{" "}
+            <Link href="/picks" className="text-white hover:text-green-bright transition-colors font-medium">
+              Paper trade our daily AI picks for free →
+            </Link>
+          </p>
 
           {/* Trust signals */}
           <div className="flex flex-col sm:flex-row items-center justify-center gap-6 text-sm text-text-dim">

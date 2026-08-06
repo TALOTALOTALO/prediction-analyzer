@@ -219,6 +219,7 @@ Order by edge score descending. Be rigorous — if fewer than 3 strong picks exi
     key_risks: p.keyRisks,
     market_inefficiency: p.marketInefficiency,
     confidence_level: p.confidenceLevel,
+    market_id: (p as Record<string, unknown>).marketId ?? null,
   }));
 
   if (rows.length === 0) {

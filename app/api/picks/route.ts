@@ -2,11 +2,12 @@ import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { getSupabase } from "@/lib/supabase";
 
+const FREE_FIELDS = "id, pick_date, platform, event, position, odds, implied_probability, category, grade, recommendation, result, market_id";
+
 export async function GET() {
   const { userId } = await auth();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  // Check subscription
   const { data: sub } = await getSupabase()
     .from("subscriptions")
     .select("status")
@@ -14,14 +15,12 @@ export async function GET() {
     .single();
 
   const isActive = sub?.status === "active" || sub?.status === "trialing";
-  if (!isActive) return NextResponse.json({ error: "Subscription required" }, { status: 403 });
-
   const isAdmin = userId === process.env.ADMIN_USER_ID;
 
-  // Fetch most recent pick date's picks
+  // Fetch most recent picks — full fields for subscribers, limited for free users
   const { data, error } = await getSupabase()
     .from("daily_picks")
-    .select("*")
+    .select(isActive ? "*" : FREE_FIELDS)
     .order("pick_date", { ascending: false })
     .order("edge_score", { ascending: false })
     .limit(20);
@@ -32,24 +31,23 @@ export async function GET() {
   }
 
   const mostRecentDate = data?.[0]?.pick_date ?? null;
-  const picks = mostRecentDate
-    ? data.filter((p) => p.pick_date === mostRecentDate)
-    : [];
+  const picks = mostRecentDate ? data.filter((p) => p.pick_date === mostRecentDate) : [];
 
-  // Compute all-time record from every pick that has a result
-  const { data: allResolved } = await getSupabase()
-    .from("daily_picks")
-    .select("result")
-    .not("result", "is", null);
+  // Win record — only for subscribers (free users see it as a conversion hook)
+  let record = null;
+  if (isActive) {
+    const { data: allResolved } = await getSupabase()
+      .from("daily_picks")
+      .select("result")
+      .not("result", "is", null);
 
-  const resolved = allResolved ?? [];
-  const wins = resolved.filter((p) => p.result === "won").length;
-  const losses = resolved.filter((p) => p.result === "lost").length;
-  const voids = resolved.filter((p) => p.result === "void").length;
-  const total = wins + losses;
-  const winRate = total > 0 ? Math.round((wins / total) * 100) : null;
+    const resolved = allResolved ?? [];
+    const wins = resolved.filter((p) => p.result === "won").length;
+    const losses = resolved.filter((p) => p.result === "lost").length;
+    const voids = resolved.filter((p) => p.result === "void").length;
+    const total = wins + losses;
+    record = { wins, losses, voids, winRate: total > 0 ? Math.round((wins / total) * 100) : null, total };
+  }
 
-  const record = { wins, losses, voids, winRate, total };
-
-  return NextResponse.json({ picks, pickDate: mostRecentDate, record, isAdmin });
+  return NextResponse.json({ picks, pickDate: mostRecentDate, record, isAdmin, isFree: !isActive });
 }

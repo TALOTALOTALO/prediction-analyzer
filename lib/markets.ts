@@ -3,6 +3,7 @@ import { createSign } from "crypto";
 export interface LiveMarket {
   platform: string;
   question: string;
+  marketId?: string;  // Kalshi ticker or Polymarket ID — used for paper trade resolution
   contract?: string;
   yesPrice: number;   // 0-100 (cents)
   noPrice?: number;   // 0-100 (cents)
@@ -50,6 +51,7 @@ export async function fetchKalshiMarkets(): Promise<LiveMarket[]> {
       .map((m: Record<string, unknown>) => ({
         platform: "Kalshi",
         question: (m.title as string) ?? (m.event_ticker as string) ?? "Unknown",
+        marketId: (m.ticker as string) ?? undefined,
         yesPrice: Math.round(parseFloat((m.yes_bid_dollars as string) ?? "0") * 100),
         noPrice: Math.round(parseFloat((m.no_bid_dollars as string) ?? "0") * 100),
         volume: parseFloat((m.volume_24h_fp as string) ?? "0"),
@@ -93,6 +95,7 @@ export async function fetchPolymarkets(): Promise<LiveMarket[]> {
         return {
           platform: "Polymarket",
           question: m.question as string,
+          marketId: (m.id as string) ?? (m.conditionId as string) ?? undefined,
           yesPrice,
           noPrice: 100 - yesPrice,
           volume: (m.volumeNum as number) ?? parseFloat((m.volume as string) ?? "0"),
