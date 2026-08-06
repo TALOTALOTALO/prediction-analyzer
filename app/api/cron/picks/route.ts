@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { getSupabase } from "@/lib/supabase";
 
+export const maxDuration = 300; // 5 min — Tavily + Claude adaptive thinking needs room
+
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 async function tavilySearch(query: string): Promise<string> {
