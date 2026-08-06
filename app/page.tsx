@@ -194,17 +194,29 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Trusted by / markets */}
-      <section className="py-10 border-y border-border-subtle">
-        <div className="max-w-5xl mx-auto px-6">
-          <p className="text-center text-text-dim text-sm mb-6 uppercase tracking-widest font-medium">
-            Works with every platform
-          </p>
-          <div className="flex flex-wrap justify-center gap-6 md:gap-12">
-            {["Kalshi", "Polymarket", "PredictIt", "Manifold", "Metaculus", "Any Market"].map((p) => (
-              <span key={p} className="text-text-dim text-sm font-medium hover:text-white transition-colors cursor-default">
-                {p}
-              </span>
+      {/* Trusted by / markets ticker */}
+      <section className="py-10 border-y border-border-subtle overflow-hidden">
+        <p className="text-center text-text-dim text-xs mb-6 uppercase tracking-widest font-medium px-4">
+          Works with every prediction market platform
+        </p>
+        {/* Fade masks on left and right */}
+        <div
+          className="relative"
+          style={{
+            maskImage: "linear-gradient(to right, transparent 0%, black 12%, black 88%, transparent 100%)",
+            WebkitMaskImage: "linear-gradient(to right, transparent 0%, black 12%, black 88%, transparent 100%)",
+          }}
+        >
+          {/* Duplicate items so the loop is seamless */}
+          <div className="ticker-track">
+            {[...MARKETS, ...MARKETS].map((m, i) => (
+              <div key={i} className="flex items-center gap-3 px-8">
+                <span className={`flex items-center justify-center w-8 h-8 rounded-lg text-base ${m.iconBg}`}>
+                  {m.icon}
+                </span>
+                <span className="text-white font-semibold text-sm whitespace-nowrap">{m.name}</span>
+                <span className="w-1 h-1 rounded-full bg-white/20 ml-2" />
+              </div>
             ))}
           </div>
         </div>
@@ -779,6 +791,17 @@ function StepCard({ number, title, description, icon: Icon }: {
     </div>
   );
 }
+
+const MARKETS = [
+  { name: "Kalshi",      icon: "📈", iconBg: "bg-blue-500/15" },
+  { name: "Polymarket",  icon: "🔵", iconBg: "bg-purple-500/15" },
+  { name: "PredictIt",   icon: "🇺🇸", iconBg: "bg-red-500/15" },
+  { name: "Manifold",    icon: "🌊", iconBg: "bg-cyan-500/15" },
+  { name: "Metaculus",   icon: "🔮", iconBg: "bg-indigo-500/15" },
+  { name: "Smarkets",    icon: "🎯", iconBg: "bg-orange-500/15" },
+  { name: "Betfair",     icon: "⚡", iconBg: "bg-yellow-500/15" },
+  { name: "Any Market",  icon: "✅", iconBg: "bg-green-500/15" },
+];
 
 const BORDER_COLORS = [
   "border-cyan-400/40",

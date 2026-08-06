@@ -71,6 +71,20 @@ input[type="range"]::-moz-range-thumb {
   box-shadow: 0 0 12px rgba(0, 220, 130, 0.5);
 }
 
+/* Scrolling ticker */
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+.ticker-track {
+  display: flex;
+  width: max-content;
+  animation: marquee 28s linear infinite;
+}
+.ticker-track:hover {
+  animation-play-state: paused;
+}
+
 /* Grade badge glow */
 .grade-s { box-shadow: 0 0 24px rgba(0, 220, 130, 0.4); }
 .grade-a { box-shadow: 0 0 24px rgba(0, 200, 110, 0.3); }
