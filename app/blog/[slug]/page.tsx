@@ -5,20 +5,31 @@ import { ArrowLeft, Clock, ArrowRight } from "lucide-react";
 import { PortableText } from "next-sanity";
 import { sanityClient, urlFor, type Post } from "@/lib/sanity";
 
+export const revalidate = 60;
+
 async function getPost(slug: string): Promise<Post | null> {
-  return sanityClient.fetch(
-    `*[_type == "post" && slug.current == $slug][0] {
-      _id, title, slug, excerpt, publishedAt, category, readTime, mainImage, body
-    }`,
-    { slug }
-  );
+  try {
+    return await sanityClient.fetch(
+      `*[_type == "post" && slug.current == $slug][0] {
+        _id, title, slug, excerpt, publishedAt, category, readTime, mainImage, body
+      }`,
+      { slug },
+      { next: { revalidate: 60 } }
+    );
+  } catch {
+    return null;
+  }
 }
 
 export async function generateStaticParams() {
-  const slugs: { slug: string }[] = await sanityClient.fetch(
-    `*[_type == "post"]{ "slug": slug.current }`
-  );
-  return slugs.map((s) => ({ slug: s.slug }));
+  try {
+    const slugs: { slug: string }[] = await sanityClient.fetch(
+      `*[_type == "post"]{ "slug": slug.current }`
+    );
+    return slugs.map((s) => ({ slug: s.slug }));
+  } catch {
+    return [];
+  }
 }
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {

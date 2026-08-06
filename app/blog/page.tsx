@@ -3,12 +3,20 @@ import Image from "next/image";
 import { ArrowRight, ArrowLeft, Clock } from "lucide-react";
 import { sanityClient, urlFor, type Post } from "@/lib/sanity";
 
+export const revalidate = 60;
+
 async function getPosts(): Promise<Post[]> {
-  return sanityClient.fetch(
-    `*[_type == "post"] | order(publishedAt desc) {
-      _id, title, slug, excerpt, publishedAt, category, readTime, mainImage
-    }`
-  );
+  try {
+    return await sanityClient.fetch(
+      `*[_type == "post"] | order(publishedAt desc) {
+        _id, title, slug, excerpt, publishedAt, category, readTime, mainImage
+      }`,
+      {},
+      { next: { revalidate: 60 } }
+    );
+  } catch {
+    return [];
+  }
 }
 
 export const metadata = {
