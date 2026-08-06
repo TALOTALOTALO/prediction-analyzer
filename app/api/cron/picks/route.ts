@@ -3,6 +3,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { Resend } from "resend";
 import { render } from "@react-email/components";
 import { getSupabase } from "@/lib/supabase";
+import { fetchKalshiMarkets, fetchPolymarkets, fetchPredictItMarkets, formatMarketsForClaude } from "@/lib/markets";
 import DailyPicksEmail from "@/emails/DailyPicksEmail";
 
 export const maxDuration = 300; // 5 min — Tavily + Claude adaptive thinking needs room
@@ -109,20 +110,25 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ message: "Picks already generated for today", date: today });
   }
 
-  // Parallel Tavily searches across market categories
-  const [politics, sports, economics, general] = await Promise.all([
-    tavilySearch(`Kalshi Polymarket prediction market politics best value odds ${today}`),
-    tavilySearch(`Kalshi sports prediction market mispriced odds today ${today}`),
-    tavilySearch(`Polymarket economics finance crypto prediction market opportunities ${today}`),
-    tavilySearch(`prediction market best bets high conviction plays underpriced ${today}`),
+  // Fetch live markets + Tavily news context in parallel
+  const [kalshiMarkets, polyMarkets, predictItMarkets, newsContext, marketNews] = await Promise.all([
+    fetchKalshiMarkets(),
+    fetchPolymarkets(),
+    fetchPredictItMarkets(),
+    tavilySearch(`prediction market news mispriced opportunities today ${today}`),
+    tavilySearch(`politics economics finance breaking news events ${today}`),
   ]);
 
-  const marketIntel = [
-    `=== POLITICS ===\n${politics}`,
-    `=== SPORTS ===\n${sports}`,
-    `=== ECONOMICS & FINANCE ===\n${economics}`,
-    `=== GENERAL MARKETS ===\n${general}`,
-  ].join("\n\n---\n\n");
+  const allMarkets = [...kalshiMarkets, ...polyMarkets, ...predictItMarkets];
+  const liveMarketsText = formatMarketsForClaude(allMarkets);
+
+  const marketIntel = `=== LIVE MARKET PRICES (${allMarkets.length} markets) ===
+${liveMarketsText}
+
+=== RESEARCH & NEWS CONTEXT ===
+${newsContext}
+
+${marketNews}`;
 
   const todayLabel = new Date().toLocaleDateString("en-US", {
     weekday: "long", month: "long", day: "numeric", year: "numeric",
@@ -136,12 +142,14 @@ export async function GET(req: NextRequest) {
     output_config: { effort: "high" },
     messages: [{
       role: "user",
-      content: `You are an expert prediction market analyst. Today is ${todayLabel}. Based on the live market intelligence below, identify the best prediction market opportunities currently available.
+      content: `You are an expert prediction market analyst. Today is ${todayLabel}.
 
-LIVE MARKET INTELLIGENCE:
+You have been given REAL LIVE market prices from Kalshi, Polymarket, and PredictIt — these are actual current prices you can trade right now. You also have Tavily research with breaking news context to help identify mispricings.
+
+LIVE DATA:
 ${marketIntel}
 
-Select the top plays from Kalshi, Polymarket, PredictIt, or similar platforms that appear mispriced or represent clear value. Only include picks with grade A or better — genuine edge plays, not just interesting markets.
+Analyze the real markets above. Cross-reference their current prices with the news context to identify genuine mispricings where the market probability diverges significantly from true probability. Only include picks with grade A or better — genuine edge plays backed by specific evidence.
 
 Return ONLY a valid JSON array (no markdown, no explanation). Include between 3 and 6 picks:
 [
