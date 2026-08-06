@@ -210,12 +210,12 @@ export default function LandingPage() {
           {/* Duplicate items so the loop is seamless */}
           <div className="ticker-track">
             {[...MARKETS, ...MARKETS].map((m, i) => (
-              <div key={i} className="flex items-center gap-3 px-8">
-                <span className={`flex items-center justify-center w-8 h-8 rounded-lg text-base ${m.iconBg}`}>
-                  {m.icon}
-                </span>
+              <div key={i} className="flex items-center gap-3 px-10">
+                <div className="w-7 h-7 rounded-lg overflow-hidden bg-white/5 flex items-center justify-center shrink-0">
+                  <Image src={m.logo} alt={m.name} width={28} height={28} className="object-contain" />
+                </div>
                 <span className="text-white font-semibold text-sm whitespace-nowrap">{m.name}</span>
-                <span className="w-1 h-1 rounded-full bg-white/20 ml-2" />
+                <span className="w-1 h-1 rounded-full bg-white/15 ml-1 shrink-0" />
               </div>
             ))}
           </div>
@@ -793,14 +793,13 @@ function StepCard({ number, title, description, icon: Icon }: {
 }
 
 const MARKETS = [
-  { name: "Kalshi",      icon: "📈", iconBg: "bg-blue-500/15" },
-  { name: "Polymarket",  icon: "🔵", iconBg: "bg-purple-500/15" },
-  { name: "PredictIt",   icon: "🇺🇸", iconBg: "bg-red-500/15" },
-  { name: "Manifold",    icon: "🌊", iconBg: "bg-cyan-500/15" },
-  { name: "Metaculus",   icon: "🔮", iconBg: "bg-indigo-500/15" },
-  { name: "Smarkets",    icon: "🎯", iconBg: "bg-orange-500/15" },
-  { name: "Betfair",     icon: "⚡", iconBg: "bg-yellow-500/15" },
-  { name: "Any Market",  icon: "✅", iconBg: "bg-green-500/15" },
+  { name: "Kalshi",     logo: "/logos/kalshi.png" },
+  { name: "Polymarket", logo: "/logos/polymarket.png" },
+  { name: "PredictIt",  logo: "/logos/predictit.png" },
+  { name: "Manifold",   logo: "/logos/manifold.png" },
+  { name: "Metaculus",  logo: "/logos/metaculus.png" },
+  { name: "Smarkets",   logo: "/logos/smarkets.png" },
+  { name: "Betfair",    logo: "/logos/betfair.png" },
 ];
 
 const BORDER_COLORS = [
