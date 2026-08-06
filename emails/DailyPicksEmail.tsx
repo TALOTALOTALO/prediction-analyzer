@@ -105,13 +105,13 @@ export default function DailyPicksEmail({ picks, dateLabel }: DailyPicksEmailPro
                 </tbody>
               </table>
 
-              <Text style={recLabel}>
-                {pick.recommendation === "BUY" ? "BUY" : "FADE"} · {pick.recommendation_reason}
+              <Text style={{ ...recLabel, color: pick.recommendation === "BUY" ? "#22c55e" : "#f87171" }}>
+                {pick.recommendation} · {pick.recommendation_reason}
               </Text>
 
               <Text style={summaryText}>{pick.summary}</Text>
 
-              <Text style={edgeText}>Edge Score: {String(pick.edge_score)}/10</Text>
+              <Text style={edgeText}>Edge Score: {String(pick.edge_score)}/100</Text>
             </Section>
           ))}
 
@@ -133,6 +133,11 @@ export default function DailyPicksEmail({ picks, dateLabel }: DailyPicksEmailPro
             </Text>
             <Text style={footerText}>
               These are not financial recommendations. Prediction markets carry risk.
+            </Text>
+            <Text style={footerText}>
+              To stop receiving these emails,{" "}
+              <a href="https://www.fademe.ai/analyze" style={footerLink}>manage your subscription</a>{" "}
+              and cancel at any time.
             </Text>
             <Text style={footerText}>
               <a href="https://www.fademe.ai" style={footerLink}>fademe.ai</a>

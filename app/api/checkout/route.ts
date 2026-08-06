@@ -49,7 +49,7 @@ export async function POST() {
     }
 
     const session = await stripe.checkout.sessions.create(sessionParams, {
-      idempotencyKey: `checkout-${userId}`,
+      idempotencyKey: `checkout-${userId}-${new Date().toISOString().slice(0, 10)}`,
     });
 
     return NextResponse.json({ url: session.url });
