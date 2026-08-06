@@ -22,6 +22,7 @@ import {
   Sparkles,
   LogIn,
   LogOut,
+  Clock,
 } from "lucide-react";
 
 interface DetectedBet {
@@ -109,6 +110,10 @@ function AnalyzePageInner() {
   const [portalLoading, setPortalLoading] = useState(false);
 
   const [dashPicks, setDashPicks] = useState<DashboardPick[]>([]);
+  const [recentAnalyses, setRecentAnalyses] = useState<Array<{
+    id: string; event: string; grade: string; recommendation: string;
+    created_at: string; platform: string; outcome: "correct" | "incorrect" | null;
+  }>>([]);
 
   const [dragActive, setDragActive] = useState(false);
   const [preview, setPreview] = useState<string | null>(null);
@@ -127,6 +132,10 @@ function AnalyzePageInner() {
           fetch("/api/picks")
             .then((r) => r.json())
             .then((data) => { if (data.picks) setDashPicks(data.picks.slice(0, 3)); })
+            .catch(() => {});
+          fetch("/api/history")
+            .then((r) => r.json())
+            .then((data) => { if (data.analyses) setRecentAnalyses(data.analyses.slice(0, 4)); })
             .catch(() => {});
         } else if (d.freeAnalysisUsed) {
           setSubStatus("upgradeRequired");
@@ -598,6 +607,60 @@ function AnalyzePageInner() {
                       Analyze another <ChevronRight size={14} />
                     </button>
                   )}
+                </div>
+              </div>
+            )}
+
+            {/* Past Analyses gallery — subscribers only */}
+            {subStatus === "active" && recentAnalyses.length > 0 && (
+              <div className="mt-10">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <Clock size={15} className="text-text-dim" />
+                    <span className="text-sm font-semibold text-white">Past Analyses</span>
+                  </div>
+                  <Link href="/history" className="flex items-center gap-1 text-xs text-text-dim hover:text-white transition-colors">
+                    View all <ChevronRight size={12} />
+                  </Link>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  {recentAnalyses.map((a) => {
+                    const gs = GRADE_CONFIG[a.grade ?? "C"] ?? GRADE_CONFIG["C"];
+                    const rec = a.recommendation ?? "HOLD";
+                    const rs = REC_CONFIG[rec];
+                    const RecIcon = rs?.icon ?? Minus;
+                    const isCorrect = a.outcome === "correct";
+                    return (
+                      <Link
+                        key={a.id}
+                        href="/history"
+                        className={`relative rounded-xl border ${gs.border} ${gs.bg} p-3 block hover:brightness-110 transition-all overflow-hidden ${
+                          isCorrect ? "shadow-[0_0_12px_rgba(0,220,130,0.12)]" : ""
+                        }`}
+                      >
+                        {isCorrect && (
+                          <div className="absolute inset-0 bg-[#00dc82]/10 pointer-events-none" />
+                        )}
+                        {isCorrect && (
+                          <div className="absolute top-2 right-2 w-4 h-4 rounded-full bg-[#00dc82] flex items-center justify-center">
+                            <CheckCircle size={8} className="text-[#070d1a]" />
+                          </div>
+                        )}
+                        <div className="relative">
+                          <div className="flex items-center justify-between mb-1.5">
+                            <span className={`text-xl font-black ${gs.text}`}>{a.grade ?? "C"}</span>
+                            <span className={`text-xs font-bold flex items-center gap-0.5 ${
+                              rec === "BUY" ? "text-[#00dc82]" : rec === "FADE" ? "text-red-400" : "text-yellow-400"
+                            }`}>
+                              <RecIcon size={10} />{rec}
+                            </span>
+                          </div>
+                          <p className="text-white text-xs font-medium leading-snug line-clamp-2 mb-1.5">{a.event || "Unknown"}</p>
+                          <p className="text-text-dim text-xs">{a.platform || ""}</p>
+                        </div>
+                      </Link>
+                    );
+                  })}
                 </div>
               </div>
             )}

@@ -39,10 +39,7 @@ async function checkKalshiResult(ticker: string): Promise<"yes" | "no" | null> {
 
 async function checkPolymarketResult(marketId: string): Promise<"yes" | "no" | null> {
   try {
-    const res = await fetch(
-      `https://gamma-api.polymarket.com/markets?id=${marketId}`,
-      { headers: { "Content-Type": "application/json" } }
-    );
+    const res = await fetch(`https://gamma-api.polymarket.com/markets?id=${marketId}`);
     if (!res.ok) return null;
     const data: Record<string, unknown>[] = await res.json();
     const market = data?.[0];
@@ -63,65 +60,68 @@ async function checkPolymarketResult(marketId: string): Promise<"yes" | "no" | n
   }
 }
 
-function calculatePayout(stake: number, entryPrice: number, result: "won" | "lost" | "void"): number {
-  if (result === "void") return stake;
-  if (result === "lost") return 0;
-  return parseFloat((stake * (100 / entryPrice)).toFixed(2));
-}
-
 export async function GET(req: NextRequest) {
   const authHeader = req.headers.get("authorization");
   if (!process.env.CRON_SECRET || authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // Fetch all pending paper trades with their pick info
+  // Fetch unresolved analyses that have a market_id
   const { data: pending, error } = await getSupabase()
-    .from("paper_trades")
-    .select("id, virtual_stake, position, entry_price, daily_picks(platform, market_id)")
-    .is("result", null);
+    .from("analyses")
+    .select("id, platform, market_id, position, recommendation")
+    .is("outcome", null)
+    .not("market_id", "is", null);
 
   if (error) {
-    console.error("Resolve trades fetch error:", error);
-    return NextResponse.json({ error: "Failed to fetch pending trades" }, { status: 500 });
+    console.error("Resolve analyses fetch error:", error);
+    return NextResponse.json({ error: "Failed to fetch analyses" }, { status: 500 });
   }
 
   if (!pending || pending.length === 0) {
-    return NextResponse.json({ message: "No pending paper trades", resolved: 0 });
+    return NextResponse.json({ message: "No pending analyses", resolved: 0 });
   }
 
   let resolved = 0;
 
-  for (const trade of pending) {
-    const pickRaw = trade.daily_picks;
-    const pick = (Array.isArray(pickRaw) ? pickRaw[0] ?? null : pickRaw) as { platform: string; market_id: string | null } | null;
-    if (!pick?.market_id) continue;
+  for (const analysis of pending) {
+    const marketId = analysis.market_id as string;
+    const platform = analysis.platform as string;
 
     let marketResult: "yes" | "no" | null = null;
 
-    if (pick.platform === "Kalshi") {
-      marketResult = await checkKalshiResult(pick.market_id);
-    } else if (pick.platform === "Polymarket") {
-      marketResult = await checkPolymarketResult(pick.market_id);
+    if (platform === "Kalshi") {
+      marketResult = await checkKalshiResult(marketId);
+    } else if (platform === "Polymarket") {
+      marketResult = await checkPolymarketResult(marketId);
     }
 
     if (!marketResult) continue;
 
-    // Determine win/loss based on trade position vs market result
-    const tradeWon =
-      (trade.position === "YES" && marketResult === "yes") ||
-      (trade.position === "NO" && marketResult === "no");
+    const rec = (analysis.recommendation as string)?.toUpperCase();
+    const pos = (analysis.position as string)?.toUpperCase();
 
-    const tradeResult: "won" | "lost" = tradeWon ? "won" : "lost";
-    const virtualPayout = calculatePayout(Number(trade.virtual_stake), Number(trade.entry_price), tradeResult);
+    // Determine if prediction was correct:
+    // BUY on YES position = correct if market resolves yes
+    // FADE on YES position = correct if market resolves no
+    // BUY on NO position = correct if market resolves no
+    // FADE on NO position = correct if market resolves yes
+    let outcome: "correct" | "incorrect" | null = null;
+    if (rec === "BUY") {
+      outcome = (pos === "NO" ? marketResult === "no" : marketResult === "yes") ? "correct" : "incorrect";
+    } else if (rec === "FADE") {
+      outcome = (pos === "NO" ? marketResult === "yes" : marketResult === "no") ? "correct" : "incorrect";
+    }
+
+    if (!outcome) continue;
 
     const { error: updateErr } = await getSupabase()
-      .from("paper_trades")
-      .update({ result: tradeResult, virtual_payout: virtualPayout })
-      .eq("id", trade.id);
+      .from("analyses")
+      .update({ outcome })
+      .eq("id", analysis.id);
 
     if (updateErr) {
-      console.error(`Failed to resolve trade ${trade.id}:`, updateErr);
+      console.error(`Failed to resolve analysis ${analysis.id}:`, updateErr);
     } else {
       resolved++;
     }

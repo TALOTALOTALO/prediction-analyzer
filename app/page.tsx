@@ -177,7 +177,7 @@ export default function LandingPage() {
             </div>
             <div className="flex items-center gap-1.5">
               <CheckCircle size={14} className="text-green-bright" />
-              Screenshots only — nothing stored
+              Submit a screenshot · get instant analysis
             </div>
           </div>
         </div>

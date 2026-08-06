@@ -156,7 +156,8 @@ Return ONLY a JSON object with this exact structure (no markdown, no explanation
   "potentialPayout": "string (potential return, or 'unknown')",
   "expirationDate": "string (when the bet resolves, or 'unknown')",
   "category": "string (e.g. Politics, Sports, Finance, Economics, Entertainment, Other)",
-  "rawText": "string (any other relevant text visible in the screenshot)"
+  "rawText": "string (any other relevant text visible in the screenshot)",
+  "marketId": "string or null (Kalshi ticker e.g. KXBTC-24DEC, or Polymarket condition ID if visible in the URL or page — null if not visible)"
 }`,
             },
           ],
@@ -262,6 +263,7 @@ Be rigorous and realistic. Most bets should grade C or lower.`;
         entry_strategy: analysis.entryStrategy,
         exit_strategy: analysis.exitStrategy,
         has_live_context: !!newsContext,
+        market_id: (detected.marketId as string) ?? null,
       });
       if (dbErr) console.error("Failed to save analysis:", dbErr);
     });

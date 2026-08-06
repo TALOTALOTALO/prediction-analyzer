@@ -11,6 +11,10 @@
     {
       "path": "/api/cron/resolve-trades",
       "schedule": "0 12 * * *"
+    },
+    {
+      "path": "/api/cron/resolve-analyses",
+      "schedule": "0 13 * * *"
     }
   ]
 }

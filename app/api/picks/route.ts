@@ -20,7 +20,8 @@ export async function GET() {
   const isPro = isActive || isAdmin;
 
   // Fetch most recent picks — full fields for subscribers/admin, limited for free users
-  const { data, error } = await getSupabase()
+  // Type-assert as Record array because the conditional select string breaks Supabase TS inference
+  const { data: rawData, error } = await getSupabase()
     .from("daily_picks")
     .select(isPro ? "*" : FREE_FIELDS)
     .order("pick_date", { ascending: false })
@@ -32,8 +33,9 @@ export async function GET() {
     return NextResponse.json({ error: "Failed to fetch picks" }, { status: 500 });
   }
 
-  const mostRecentDate = data?.[0]?.pick_date ?? null;
-  const picks = mostRecentDate ? data.filter((p) => p.pick_date === mostRecentDate) : [];
+  const data = rawData as Array<Record<string, unknown>> | null;
+  const mostRecentDate = (data?.[0]?.pick_date as string) ?? null;
+  const picks = mostRecentDate ? data!.filter((p) => p.pick_date === mostRecentDate) : [];
 
   // Win record — only for subscribers/admin (free users see it as a conversion hook)
   let record = null;
