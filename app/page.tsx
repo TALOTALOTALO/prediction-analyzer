@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import {
@@ -17,7 +17,9 @@ import {
   EyeOff,
   Ban,
   ChevronDown,
+  Clock,
 } from "lucide-react";
+import { sanityClient, type Post } from "@/lib/sanity";
 
 function FaqItem({ question, answer }: { question: string; answer: string }) {
   const [open, setOpen] = useState(false);
@@ -47,8 +49,20 @@ function FaqItem({ question, answer }: { question: string; answer: string }) {
 export default function LandingPage() {
   const [avgProfit, setAvgProfit] = useState(25);
   const [picksPerMonth, setPicksPerMonth] = useState(20);
+  const [latestPost, setLatestPost] = useState<Post | null>(null);
 
   const monthlyProfit = avgProfit * picksPerMonth;
+
+  useEffect(() => {
+    sanityClient
+      .fetch<Post>(
+        `*[_type == "post"] | order(publishedAt desc)[0] { _id, title, slug, excerpt, publishedAt, category, readTime }`,
+        {},
+        { next: { revalidate: 3600 } }
+      )
+      .then(setLatestPost)
+      .catch(() => {});
+  }, []);
 
   return (
     <div className="min-h-screen bg-bg overflow-x-hidden">
@@ -359,6 +373,53 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* Latest from the blog */}
+      {latestPost && (
+        <section className="py-20 px-4 border-t border-border-subtle">
+          <div className="max-w-5xl mx-auto">
+            <SectionLabel>The Edge Report</SectionLabel>
+            <h2 className="text-3xl font-bold text-center mb-10">Latest from the blog</h2>
+            <Link
+              href={`/blog/${latestPost.slug.current}`}
+              className="group flex flex-col md:flex-row items-start gap-6 rounded-2xl border border-border-subtle bg-card p-8 hover:border-green-bright/30 transition-all"
+            >
+              <div className="flex-1">
+                <div className="flex items-center gap-3 mb-3">
+                  {latestPost.category && (
+                    <span className="text-xs font-semibold text-green-bright uppercase tracking-wider">
+                      {latestPost.category}
+                    </span>
+                  )}
+                  {latestPost.readTime && (
+                    <span className="flex items-center gap-1 text-xs text-text-dim">
+                      <Clock size={11} />
+                      {latestPost.readTime} min read
+                    </span>
+                  )}
+                  <span className="text-xs text-text-dim">
+                    {new Date(latestPost.publishedAt).toLocaleDateString("en-US", {
+                      month: "long", day: "numeric", year: "numeric",
+                    })}
+                  </span>
+                </div>
+                <h3 className="text-xl md:text-2xl font-bold text-white mb-3 group-hover:text-green-bright transition-colors">
+                  {latestPost.title}
+                </h3>
+                <p className="text-text-dim text-sm leading-relaxed">{latestPost.excerpt}</p>
+              </div>
+              <div className="shrink-0 flex items-center gap-1 text-green-bright text-sm font-semibold mt-2 md:mt-0 md:self-center">
+                Read more <ArrowRight size={14} />
+              </div>
+            </Link>
+            <div className="text-center mt-6">
+              <Link href="/blog" className="text-sm text-text-dim hover:text-white transition-colors">
+                View all posts →
+              </Link>
+            </div>
+          </div>
+        </section>
+      )}
+
       {/* FAQ */}
       <section id="faq" className="py-20 px-4 border-t border-border-subtle">
         <div className="max-w-3xl mx-auto">
@@ -418,6 +479,7 @@ export default function LandingPage() {
             For informational purposes only. Not financial advice. Prediction markets involve risk.
           </p>
           <div className="flex items-center gap-6 text-xs text-text-dim">
+            <Link href="/blog" className="hover:text-white transition-colors">Blog</Link>
             <Link href="/terms" className="hover:text-white transition-colors">Terms</Link>
             <Link href="/privacy" className="hover:text-white transition-colors">Privacy</Link>
             <span>© 2026 FadeMe</span>
