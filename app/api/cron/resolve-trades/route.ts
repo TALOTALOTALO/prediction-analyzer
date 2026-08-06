@@ -55,8 +55,8 @@ async function checkPolymarketResult(marketId: string): Promise<"yes" | "no" | n
       return null;
     }
     const yesPrice = parseFloat(prices[0] ?? "0.5");
-    if (yesPrice >= 0.99) return "yes";
-    if (yesPrice <= 0.01) return "no";
+    if (yesPrice >= 0.95) return "yes";
+    if (yesPrice <= 0.05) return "no";
     return null;
   } catch {
     return null;

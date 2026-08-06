@@ -9,6 +9,10 @@ export async function POST() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  if (!process.env.NEXT_PUBLIC_APP_URL || !process.env.STRIPE_MONTHLY_PRICE_ID) {
+    return NextResponse.json({ error: "Service configuration error" }, { status: 503 });
+  }
+
   try {
     const { data: existing, error: dbError } = await getSupabase()
       .from("subscriptions")
