@@ -33,7 +33,7 @@ export async function GET() {
     return NextResponse.json({ error: "Failed to fetch picks" }, { status: 500 });
   }
 
-  const data = rawData as Array<Record<string, unknown>> | null;
+  const data = (rawData as unknown) as Array<Record<string, unknown>> | null;
   const mostRecentDate = (data?.[0]?.pick_date as string) ?? null;
   const picks = mostRecentDate ? data!.filter((p) => p.pick_date === mostRecentDate) : [];
 

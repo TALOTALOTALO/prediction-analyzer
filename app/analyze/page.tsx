@@ -110,6 +110,7 @@ function AnalyzePageInner() {
   const [portalLoading, setPortalLoading] = useState(false);
   const [syncLoading, setSyncLoading] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
+  const [checkoutError, setCheckoutError] = useState<string | null>(null);
 
   const [dashPicks, setDashPicks] = useState<DashboardPick[]>([]);
   const [recentAnalyses, setRecentAnalyses] = useState<Array<{
@@ -150,13 +151,23 @@ function AnalyzePageInner() {
 
   const startCheckout = async () => {
     setCheckoutLoading(true);
+    setCheckoutError(null);
     try {
       const res = await fetch("/api/checkout", { method: "POST" });
       const data = await res.json();
-      if (data.url) window.location.href = data.url;
-      else setCheckoutLoading(false);
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        setCheckoutLoading(false);
+        if (res.status === 409) {
+          setCheckoutError("You already have an active subscription. Try restoring it below.");
+        } else {
+          setCheckoutError(data.error ?? "Checkout failed. Please try again.");
+        }
+      }
     } catch {
       setCheckoutLoading(false);
+      setCheckoutError("Something went wrong. Please try again.");
     }
   };
 
@@ -247,6 +258,7 @@ function AnalyzePageInner() {
       const data = await res.json();
       if (res.status === 403 && data.upgradeRequired) {
         setSubStatus("upgradeRequired");
+        setError("You've used your free analysis. Subscribe below to keep going.");
         return;
       }
       if (!res.ok) throw new Error(data.error || "Analysis failed");
@@ -331,72 +343,8 @@ function AnalyzePageInner() {
           </div>
         )}
 
-        {/* Hard upgrade wall — free analysis already used */}
-        {subStatus === "upgradeRequired" && !result && (
-          <div className="max-w-md mx-auto text-center py-12">
-            <div className="w-16 h-16 rounded-2xl bg-green-dim border border-green-bright/20 flex items-center justify-center mx-auto mb-6">
-              <Lock size={28} className="text-green-bright" />
-            </div>
-            <h1 className="text-2xl font-bold mb-3">Unlock Unlimited Analyses</h1>
-            <p className="text-text-dim mb-8 leading-relaxed">
-              You&apos;ve used your free analysis. Subscribe to keep finding edge.
-            </p>
-            <div className="rounded-2xl border border-green-bright/30 bg-card p-6 mb-6 text-left">
-              <div className="flex items-end gap-2 mb-1">
-                <span className="text-4xl font-black text-white">$1</span>
-                <span className="text-text-dim text-sm mb-1">first week</span>
-              </div>
-              <p className="text-text-dim text-sm mb-5">
-                then <span className="text-white font-semibold">$19.99/month</span> — cancel anytime
-              </p>
-              <ul className="space-y-2.5 mb-6">
-                {[
-                  "Unlimited screenshot analyses",
-                  "Daily AI picks from Kalshi, Polymarket & PredictIt",
-                  "AI edge detection & grading (S–F)",
-                  "BUY / HOLD / FADE recommendations",
-                  "Bull case, bear case & key risks",
-                ].map((f) => (
-                  <li key={f} className="flex items-center gap-2.5 text-sm text-white/80">
-                    <CheckCircle size={14} className="text-green-bright shrink-0" />
-                    {f}
-                  </li>
-                ))}
-              </ul>
-              <button
-                onClick={startCheckout}
-                disabled={checkoutLoading}
-                className="w-full py-3.5 rounded-xl bg-green-bright text-[#070d1a] font-bold text-base hover:brightness-110 transition-all disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-              >
-                {checkoutLoading ? (
-                  <>
-                    <span className="inline-block w-4 h-4 border-2 border-[#070d1a]/30 border-t-[#070d1a] rounded-full animate-spin" />
-                    Redirecting to checkout...
-                  </>
-                ) : (
-                  <><Zap size={16} /> Get Started — $1 First Week</>
-                )}
-              </button>
-            </div>
-            <p className="text-xs text-text-dim">Secure checkout via Stripe. No hidden fees.</p>
-            <p className="text-xs text-text-dim mt-3">
-              Already subscribed?{" "}
-              <button
-                onClick={restoreSubscription}
-                disabled={syncLoading}
-                className="text-white underline underline-offset-2 hover:text-green-bright transition-colors disabled:opacity-50"
-              >
-                {syncLoading ? "Restoring..." : "Restore subscription"}
-              </button>
-            </p>
-            {syncError && (
-              <p className="text-xs text-red-400 mt-2">{syncError}</p>
-            )}
-          </div>
-        )}
-
-        {/* Analyzer — active subscribers + free tier */}
-        {(subStatus === "active" || subStatus === "free" || (subStatus === "upgradeRequired" && result)) && (
+        {/* Analyzer */}
+        {(subStatus === "active" || subStatus === "free" || subStatus === "upgradeRequired") && (
           <>
             {/* Today's Picks preview — subscribers only */}
             {subStatus === "active" && dashPicks.length > 0 && (
@@ -513,6 +461,59 @@ function AnalyzePageInner() {
               <div className="mt-4 p-4 rounded-xl bg-red-500/10 border border-red-500/30 flex items-start gap-3">
                 <AlertCircle size={18} className="text-red-400 mt-0.5 shrink-0" />
                 <p className="text-red-300 text-sm">{error}</p>
+              </div>
+            )}
+
+            {/* Pro subscription card — shown for upgradeRequired users without a result */}
+            {subStatus === "upgradeRequired" && !result && (
+              <div className="mt-6 rounded-2xl border border-green-bright/30 bg-card p-5">
+                <div className="flex items-start justify-between gap-4 mb-4">
+                  <div>
+                    <p className="text-white font-semibold mb-0.5">Go unlimited with FadeMe Pro</p>
+                    <p className="text-text-dim text-sm">
+                      <span className="text-white font-bold">$1</span> first week, then $19.99/month — cancel anytime
+                    </p>
+                  </div>
+                  <button
+                    onClick={startCheckout}
+                    disabled={checkoutLoading}
+                    className="shrink-0 flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-green-bright text-[#070d1a] font-bold text-sm hover:brightness-110 transition-all disabled:opacity-60"
+                  >
+                    {checkoutLoading ? (
+                      <span className="inline-block w-3.5 h-3.5 border-2 border-[#070d1a]/30 border-t-[#070d1a] rounded-full animate-spin" />
+                    ) : (
+                      <Zap size={13} />
+                    )}
+                    {checkoutLoading ? "Redirecting..." : "$1 First Week"}
+                  </button>
+                </div>
+                <ul className="grid grid-cols-1 sm:grid-cols-2 gap-y-1.5 gap-x-4 mb-3">
+                  {[
+                    "Unlimited screenshot analyses",
+                    "Daily AI picks (Kalshi, Polymarket)",
+                    "AI edge detection & grading (S–F)",
+                    "Bull case, bear case & key risks",
+                  ].map((f) => (
+                    <li key={f} className="flex items-center gap-2 text-xs text-white/70">
+                      <CheckCircle size={11} className="text-green-bright shrink-0" />
+                      {f}
+                    </li>
+                  ))}
+                </ul>
+                {checkoutError && (
+                  <p className="text-red-400 text-xs mb-2">{checkoutError}</p>
+                )}
+                <p className="text-xs text-text-dim">
+                  Already subscribed?{" "}
+                  <button
+                    onClick={restoreSubscription}
+                    disabled={syncLoading}
+                    className="text-white underline underline-offset-2 hover:text-green-bright transition-colors disabled:opacity-50"
+                  >
+                    {syncLoading ? "Restoring..." : "Restore subscription"}
+                  </button>
+                  {syncError && <span className="text-red-400 ml-2">{syncError}</span>}
+                </p>
               </div>
             )}
 
@@ -700,31 +701,33 @@ function AnalyzePageInner() {
 
             {/* Sticky conversion banner — shown after free analysis result */}
             {result && subStatus === "upgradeRequired" && (
-              <div className="sticky bottom-4 z-10 rounded-2xl border border-[#00dc82]/40 bg-[#070d1a]/95 backdrop-blur-md p-4 flex items-center justify-between gap-4 shadow-[0_0_30px_rgba(0,220,130,0.1)]">
-                <div>
-                  <p className="text-white font-semibold text-sm">You&apos;ve used your free analysis</p>
-                  <p className="text-text-dim text-xs">
-                    Get unlimited analyses + daily AI picks for $1/week ·{" "}
-                    <button onClick={restoreSubscription} disabled={syncLoading} className="underline underline-offset-2 hover:text-white transition-colors disabled:opacity-50">
-                      {syncLoading ? "Restoring..." : "Already subscribed?"}
-                    </button>
-                  </p>
-                  {syncError && (
-                    <p className="text-red-400 text-xs mt-1">{syncError}</p>
-                  )}
+              <div className="sticky bottom-4 z-10 rounded-2xl border border-[#00dc82]/40 bg-[#070d1a]/95 backdrop-blur-md p-4 flex flex-col gap-2 shadow-[0_0_30px_rgba(0,220,130,0.1)]">
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <p className="text-white font-semibold text-sm">You&apos;ve used your free analysis</p>
+                    <p className="text-text-dim text-xs">
+                      Get unlimited analyses + daily AI picks for $1/week ·{" "}
+                      <button onClick={restoreSubscription} disabled={syncLoading} className="underline underline-offset-2 hover:text-white transition-colors disabled:opacity-50">
+                        {syncLoading ? "Restoring..." : "Already subscribed?"}
+                      </button>
+                    </p>
+                  </div>
+                  <button
+                    onClick={startCheckout}
+                    disabled={checkoutLoading}
+                    className="shrink-0 px-4 py-2.5 rounded-xl bg-[#00dc82] text-[#070d1a] font-bold text-sm hover:brightness-110 transition-all disabled:opacity-60 flex items-center gap-1.5"
+                  >
+                    {checkoutLoading ? (
+                      <span className="inline-block w-3.5 h-3.5 border-2 border-[#070d1a]/30 border-t-[#070d1a] rounded-full animate-spin" />
+                    ) : (
+                      <Zap size={13} />
+                    )}
+                    $1 First Week
+                  </button>
                 </div>
-                <button
-                  onClick={startCheckout}
-                  disabled={checkoutLoading}
-                  className="shrink-0 px-4 py-2.5 rounded-xl bg-[#00dc82] text-[#070d1a] font-bold text-sm hover:brightness-110 transition-all disabled:opacity-60 flex items-center gap-1.5"
-                >
-                  {checkoutLoading ? (
-                    <span className="inline-block w-3.5 h-3.5 border-2 border-[#070d1a]/30 border-t-[#070d1a] rounded-full animate-spin" />
-                  ) : (
-                    <Zap size={13} />
-                  )}
-                  $1 First Week
-                </button>
+                {(checkoutError || syncError) && (
+                  <p className="text-red-400 text-xs">{checkoutError ?? syncError}</p>
+                )}
               </div>
             )}
           </>
