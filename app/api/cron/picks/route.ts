@@ -153,17 +153,10 @@ Order by edge score descending. Be rigorous — if fewer than 3 strong picks exi
     return NextResponse.json({ success: true, date: today, count: 0, message: "No picks generated" });
   }
 
-  const supabaseUrl = process.env.SUPABASE_URL ?? "NOT_SET";
   const { error } = await getSupabase().from("daily_picks").insert(rows);
   if (error) {
     console.error("Failed to save picks:", error);
-    return NextResponse.json({
-      error: "Failed to save picks",
-      detail: error.message,
-      code: error.code,
-      hint: error.hint ?? null,
-      supabaseUrl: supabaseUrl.replace(/https?:\/\//, "").slice(0, 20) + "…",
-    }, { status: 500 });
+    return NextResponse.json({ error: "Failed to save picks", detail: error.message, code: error.code }, { status: 500 });
   }
 
   return NextResponse.json({ success: true, date: today, count: rows.length });
