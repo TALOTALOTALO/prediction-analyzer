@@ -8,10 +8,8 @@ const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 const ALLOWED_MIME_TYPES = ["image/jpeg", "image/png", "image/gif", "image/webp"] as const;
 type AllowedMimeType = (typeof ALLOWED_MIME_TYPES)[number];
 
-// ~10MB decoded limit (base64 is ~133% of original, so 13.5MB base64 ≈ 10MB image)
 const MAX_BASE64_LENGTH = 13_500_000;
 
-// Simple in-memory rate limit: max 20 analyses per user per hour
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
 const RATE_LIMIT = 20;
 const RATE_WINDOW_MS = 60 * 60 * 1000;
@@ -28,13 +26,42 @@ function checkRateLimit(userId: string): boolean {
   return true;
 }
 
+async function fetchNewsContext(query: string): Promise<string> {
+  if (!process.env.TAVILY_API_KEY || !query) return "";
+  try {
+    const res = await fetch("https://api.tavily.com/search", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        api_key: process.env.TAVILY_API_KEY,
+        query: `${query} prediction market odds news`,
+        search_depth: "basic",
+        max_results: 5,
+        include_answer: true,
+      }),
+    });
+    if (!res.ok) return "";
+    const data = await res.json();
+
+    const snippets = (data.results ?? [])
+      .map((r: { title: string; content: string; url: string }) =>
+        `- ${r.title}: ${r.content.slice(0, 300)}`
+      )
+      .join("\n");
+
+    const answer = data.answer ? `Summary: ${data.answer}\n\n` : "";
+    return `${answer}Recent news and context:\n${snippets}`;
+  } catch {
+    return "";
+  }
+}
+
 export async function POST(req: NextRequest) {
   const { userId } = await auth();
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // Rate limit check
   if (!checkRateLimit(userId)) {
     return NextResponse.json(
       { error: "Too many requests. Please wait before analyzing another bet." },
@@ -42,7 +69,6 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // Subscription check — handle Supabase errors explicitly
   let isActive = false;
   try {
     const { data: sub, error: dbError } = await getSupabase()
@@ -69,7 +95,6 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { image, mimeType } = body as { image: string; mimeType: string };
 
-    // Server-side input validation
     if (!image || !mimeType) {
       return NextResponse.json({ error: "Missing image or mimeType" }, { status: 400 });
     }
@@ -90,11 +115,7 @@ export async function POST(req: NextRequest) {
           content: [
             {
               type: "image",
-              source: {
-                type: "base64",
-                media_type: mimeType as AllowedMimeType,
-                data: image,
-              },
+              source: { type: "base64", media_type: mimeType as AllowedMimeType, data: image },
             },
             {
               type: "text",
@@ -126,17 +147,22 @@ Return ONLY a JSON object with this exact structure (no markdown, no explanation
       return NextResponse.json({ error: "Failed to parse bet details from image" }, { status: 422 });
     }
 
-    // Call 2: Analysis — grade the bet and generate recommendation
+    // Fetch live news context for the event — runs in parallel with nothing, ~500ms
+    const newsContext = await fetchNewsContext(detected.event as string);
+
+    // Call 2: Analysis — grade the bet using detected details + live news context
     const analysisResponse = await client.messages.create({
       model: "claude-opus-4-7",
       max_tokens: 1500,
       messages: [
         {
           role: "user",
-          content: `You are an expert prediction market analyst. Analyze this bet and return a detailed assessment.
+          content: `You are an expert prediction market analyst with access to real-time information. Analyze this bet and return a detailed assessment.
 
 Bet details extracted from screenshot:
 ${JSON.stringify(detected, null, 2)}
+
+${newsContext ? `LIVE CONTEXT (use this to inform your probability estimate — this is current information as of today):\n${newsContext}\n` : ""}
 
 Return ONLY a JSON object with this exact structure (no markdown, no explanation):
 {
@@ -176,7 +202,7 @@ Be rigorous and realistic. Most bets should grade C or lower.`,
       return NextResponse.json({ error: "Failed to generate analysis" }, { status: 422 });
     }
 
-    return NextResponse.json({ detected, analysis });
+    return NextResponse.json({ detected, analysis, hasLiveContext: !!newsContext });
   } catch (error) {
     console.error("Analyze error:", error);
     return NextResponse.json({ error: "Analysis failed. Please try again." }, { status: 500 });

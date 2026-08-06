@@ -52,6 +52,7 @@ interface BetAnalysis {
 interface AnalysisResult {
   detected: DetectedBet;
   analysis: BetAnalysis;
+  hasLiveContext?: boolean;
 }
 
 const GRADE_CONFIG: Record<
@@ -379,6 +380,12 @@ function AnalyzePageInner() {
 
             {result && (
               <div className="mt-8 space-y-5">
+                {result.hasLiveContext && (
+                  <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-blue-500/10 border border-blue-500/20 w-fit">
+                    <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />
+                    <span className="text-xs text-blue-400 font-medium">Powered by live web data</span>
+                  </div>
+                )}
                 <div className="grid grid-cols-2 gap-4">
                   <div className={`rounded-2xl border ${gradeStyle.border} ${gradeStyle.bg} ${gradeStyle.glow} p-6 flex flex-col items-center justify-center gap-2`}>
                     <p className="text-text-dim text-xs uppercase tracking-widest font-medium">Grade</p>
