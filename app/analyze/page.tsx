@@ -19,6 +19,7 @@ import {
   CheckCircle,
   Lock,
   Settings,
+  Sparkles,
 } from "lucide-react";
 
 interface DetectedBet {
@@ -216,18 +217,27 @@ function AnalyzePageInner() {
           </Link>
           <div className="flex items-center gap-3">
             {subStatus === "active" && (
-              <button
-                onClick={openPortal}
-                disabled={portalLoading}
-                className="flex items-center gap-1.5 text-xs text-text-dim hover:text-white transition-colors disabled:opacity-50"
-              >
-                {portalLoading ? (
-                  <span className="inline-block w-3 h-3 border border-white/20 border-t-white/60 rounded-full animate-spin" />
-                ) : (
-                  <Settings size={13} />
-                )}
-                Manage Plan
-              </button>
+              <>
+                <Link href="/picks" className="flex items-center gap-1 text-xs text-[#00dc82] hover:brightness-110 transition-colors font-medium">
+                  <Sparkles size={12} />
+                  Today&apos;s Picks
+                </Link>
+                <Link href="/history" className="text-xs text-text-dim hover:text-white transition-colors">
+                  History
+                </Link>
+                <button
+                  onClick={openPortal}
+                  disabled={portalLoading}
+                  className="flex items-center gap-1.5 text-xs text-text-dim hover:text-white transition-colors disabled:opacity-50"
+                >
+                  {portalLoading ? (
+                    <span className="inline-block w-3 h-3 border border-white/20 border-t-white/60 rounded-full animate-spin" />
+                  ) : (
+                    <Settings size={13} />
+                  )}
+                  Manage Plan
+                </button>
+              </>
             )}
             <UserButton />
           </div>

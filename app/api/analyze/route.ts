@@ -1,5 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { getSupabase } from "@/lib/supabase";
 
@@ -151,13 +151,7 @@ Return ONLY a JSON object with this exact structure (no markdown, no explanation
     const newsContext = await fetchNewsContext(detected.event as string);
 
     // Call 2: Analysis — grade the bet using detected details + live news context
-    const analysisResponse = await client.messages.create({
-      model: "claude-opus-4-7",
-      max_tokens: 1500,
-      messages: [
-        {
-          role: "user",
-          content: `You are an expert prediction market analyst with access to real-time information. Analyze this bet and return a detailed assessment.
+    const analysisPrompt = `You are an expert prediction market analyst with access to real-time information. Analyze this bet and return a detailed assessment.
 
 Bet details extracted from screenshot:
 ${JSON.stringify(detected, null, 2)}
@@ -188,19 +182,57 @@ C = Roughly fair value (< 1% edge), proceed with caution
 D = Slight negative value, market has edge over you
 F = Significant negative value, avoid
 
-Be rigorous and realistic. Most bets should grade C or lower.`,
-        },
-      ],
+Be rigorous and realistic. Most bets should grade C or lower.`;
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const analysisResponse = await (client.messages.create as any)({
+      model: "claude-opus-4-7",
+      max_tokens: 16000,
+      thinking: { type: "adaptive" },
+      output_config: { effort: "high" },
+      messages: [{ role: "user", content: analysisPrompt }],
     });
 
-    const analysisText =
-      analysisResponse.content[0].type === "text" ? analysisResponse.content[0].text : "";
+    const analysisText = (analysisResponse.content as Array<{ type: string; text?: string }>)
+      .filter((block) => block.type === "text")
+      .map((block) => block.text ?? "")
+      .join("");
     let analysis: Record<string, unknown>;
     try {
       analysis = JSON.parse(analysisText.replace(/```json\n?|\n?```/g, "").trim());
     } catch {
       return NextResponse.json({ error: "Failed to generate analysis" }, { status: 422 });
     }
+
+    // Persist to history after response is sent — after() keeps the lambda alive on Vercel
+    after(async () => {
+      const { error: dbErr } = await getSupabase().from("analyses").insert({
+        user_id: userId,
+        platform: detected.platform,
+        event: detected.event,
+        position: detected.position,
+        odds: detected.odds,
+        implied_probability: detected.impliedProbability,
+        stake: detected.stake,
+        potential_payout: detected.potentialPayout,
+        expiration_date: detected.expirationDate,
+        category: detected.category,
+        grade: analysis.grade,
+        grade_label: analysis.gradeLabel,
+        edge_score: analysis.edgeScore,
+        true_odds: analysis.trueOdds,
+        recommendation: analysis.recommendation,
+        recommendation_reason: analysis.recommendationReason,
+        summary: analysis.summary,
+        bull_case: analysis.bullCase,
+        bear_case: analysis.bearCase,
+        key_risks: analysis.keyRisks,
+        market_inefficiency: analysis.marketInefficiency,
+        confidence_level: analysis.confidenceLevel,
+        has_live_context: !!newsContext,
+      });
+      if (dbErr) console.error("Failed to save analysis:", dbErr);
+    });
 
     return NextResponse.json({ detected, analysis, hasLiveContext: !!newsContext });
   } catch (error) {

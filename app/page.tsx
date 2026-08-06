@@ -16,7 +16,33 @@ import {
   Lock,
   EyeOff,
   Ban,
+  ChevronDown,
 } from "lucide-react";
+
+function FaqItem({ question, answer }: { question: string; answer: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className={`border border-border-subtle rounded-2xl overflow-hidden transition-colors ${open ? "bg-card" : "bg-transparent hover:bg-card/50"}`}>
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="w-full flex items-center justify-between gap-4 px-6 py-5 text-left"
+      >
+        <span className={`font-semibold text-sm md:text-base transition-colors ${open ? "text-green-bright" : "text-white"}`}>
+          {question}
+        </span>
+        <ChevronDown
+          size={18}
+          className={`shrink-0 text-text-dim transition-transform duration-200 ${open ? "rotate-180 text-green-bright" : ""}`}
+        />
+      </button>
+      {open && (
+        <div className="px-6 pb-5">
+          <p className="text-text-dim text-sm leading-relaxed">{answer}</p>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function LandingPage() {
   const [avgProfit, setAvgProfit] = useState(25);
@@ -38,7 +64,7 @@ export default function LandingPage() {
           <div className="hidden md:flex items-center gap-8 text-sm text-text-dim">
             <a href="#how-it-works" className="hover:text-white transition-colors">How It Works</a>
             <a href="#features" className="hover:text-white transition-colors">Features</a>
-            <a href="#calculator" className="hover:text-white transition-colors">Calculator</a>
+            <a href="#faq" className="hover:text-white transition-colors">FAQ</a>
             <Link href="/blog" className="hover:text-white transition-colors">Blog</Link>
           </div>
           <Link
@@ -333,6 +359,36 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* FAQ */}
+      <section id="faq" className="py-20 px-4 border-t border-border-subtle">
+        <div className="max-w-3xl mx-auto">
+          <SectionLabel>FAQ</SectionLabel>
+          <h2 className="text-3xl md:text-4xl font-bold text-center mb-3">
+            Questions? We&apos;ve got answers.
+          </h2>
+          <p className="text-text-dim text-center mb-10 max-w-xl mx-auto">
+            Everything you need to know before your first analysis.
+          </p>
+          <div className="space-y-3 mb-10">
+            {FAQS.map((faq) => (
+              <FaqItem key={faq.question} {...faq} />
+            ))}
+          </div>
+          <div className="rounded-2xl border border-green-bright/20 bg-green-dim p-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div>
+              <p className="font-bold text-white mb-0.5">Still have questions?</p>
+              <p className="text-text-dim text-sm">Your first analysis is just $1. Try it risk-free.</p>
+            </div>
+            <Link
+              href="/analyze"
+              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-green-bright text-[#070d1a] font-bold text-sm hover:brightness-110 transition-all shrink-0 whitespace-nowrap"
+            >
+              Get Started <ArrowRight size={15} />
+            </Link>
+          </div>
+        </div>
+      </section>
+
       {/* CTA */}
       <section className="py-24 px-4 bg-hero-gradient">
         <div className="max-w-2xl mx-auto text-center">
@@ -553,6 +609,49 @@ const FEATURES = [
     title: "Risk Analysis",
     description: "Get the bull case, bear case, and the three key risks you need to watch before placing your bet.",
     icon: Shield,
+  },
+];
+
+const FAQS = [
+  {
+    question: "What exactly is an 'edge' and why does it matter?",
+    answer: "An edge is the gap between what the market thinks will happen (implied probability) and what will actually happen (true probability). If a market prices a YES at 70¢ but the true chance is 85%, you have a 15% edge in your favor — that's free money over time. FadeMe quantifies this gap on every bet you analyze.",
+  },
+  {
+    question: "How does FadeMe estimate the true probability?",
+    answer: "We run your screenshot through Claude Opus, Anthropic's most advanced AI model, which combines the extracted bet details with live web intelligence pulled in real-time via Tavily search. The AI weighs current news, historical context, and market dynamics to arrive at an independent probability estimate — then compares it to the market price.",
+  },
+  {
+    question: "Which prediction market platforms does FadeMe support?",
+    answer: "Any platform you can screenshot. Kalshi, Polymarket, PredictIt, Manifold, Metaculus, Augur, sports books, political markets — if it shows odds or a probability on screen, we can read it. No API integrations or account connections required.",
+  },
+  {
+    question: "What does BUY, HOLD, or FADE actually mean?",
+    answer: "BUY means our AI sees meaningful edge in your favor and the bet is worth taking. HOLD means it's roughly fair value — not a disaster, but no real edge. FADE means the market has priced you out, or worse, is pricing against reality. A FADE on a YES position means you should consider taking the NO side instead.",
+  },
+  {
+    question: "How accurate is the analysis?",
+    answer: "FadeMe is a decision-support tool, not a crystal ball. It uses one of the most advanced AI models available combined with live data to surface edge and risk — but prediction markets are inherently uncertain. We give you a sharper framework for making decisions, not guarantees. Always size positions appropriately and never bet more than you can afford to lose.",
+  },
+  {
+    question: "Does FadeMe work for sports prediction markets?",
+    answer: "Yes. Sports, politics, economics, entertainment, crypto — the AI handles any category. For sports, it factors in recent team performance, injury news, and historical matchup data that Tavily surfaces in real time.",
+  },
+  {
+    question: "Do you store my screenshots or trading data?",
+    answer: "Screenshots are never stored by FadeMe. They're sent directly to our AI provider (Anthropic) for analysis and discarded immediately after. We never see your prediction market login, account balance, or trade history.",
+  },
+  {
+    question: "How is this better than just doing my own research?",
+    answer: "Speed and objectivity. A thorough manual analysis — reading the news, estimating probabilities, identifying the bear case — takes 20-40 minutes per bet. FadeMe does it in under 30 seconds with zero emotional bias. You still make the final call; we just remove the grunt work and surface what matters.",
+  },
+  {
+    question: "How do I cancel my subscription?",
+    answer: "Hit the 'Manage Plan' button inside the app at any time. You'll be taken to your Stripe billing portal where you can cancel with one click. No emails, no chat required. If you cancel, you keep access through the end of your billing period.",
+  },
+  {
+    question: "What's the $1 first week about?",
+    answer: "We'd rather you try FadeMe on real bets before committing to the full price. The first week is $1 — that's it. After that, it's $19.99/month. If it doesn't pay for itself many times over in better bet selection, cancel before day 8 and it cost you a dollar.",
   },
 ];
 
