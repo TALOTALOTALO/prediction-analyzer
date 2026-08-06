@@ -74,7 +74,7 @@ const REC_CONFIG: Record<string, { icon: typeof TrendingUp; color: string; bg: s
   FADE: { icon: TrendingDown, color: "text-red-400", bg: "bg-red-400/10" },
 };
 
-type SubStatus = "loading" | "active" | "none";
+type SubStatus = "loading" | "active" | "free" | "upgradeRequired";
 
 export default function AnalyzePage() {
   return (
@@ -103,7 +103,11 @@ function AnalyzePageInner() {
   useEffect(() => {
     fetch("/api/subscription")
       .then((r) => r.json())
-      .then((d) => setSubStatus(d.active ? "active" : "none"));
+      .then((d) => {
+        if (d.active) setSubStatus("active");
+        else if (d.freeAnalysisUsed) setSubStatus("upgradeRequired");
+        else setSubStatus("free");
+      });
   }, []);
 
   const startCheckout = async () => {
@@ -185,8 +189,14 @@ function AnalyzePageInner() {
         body: JSON.stringify({ image: imageData.base64, mimeType: imageData.mimeType }),
       });
       const data = await res.json();
+      if (res.status === 403 && data.upgradeRequired) {
+        setSubStatus("upgradeRequired");
+        return;
+      }
       if (!res.ok) throw new Error(data.error || "Analysis failed");
       setResult(data);
+      // After a free analysis succeeds, mark as used so next attempt shows upsell
+      if (subStatus === "free") setSubStatus("upgradeRequired");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong. Try again.");
     } finally {
@@ -262,17 +272,16 @@ function AnalyzePageInner() {
           </div>
         )}
 
-        {/* Upgrade wall */}
-        {subStatus === "none" && (
+        {/* Hard upgrade wall — free analysis already used */}
+        {subStatus === "upgradeRequired" && !result && (
           <div className="max-w-md mx-auto text-center py-12">
             <div className="w-16 h-16 rounded-2xl bg-green-dim border border-green-bright/20 flex items-center justify-center mx-auto mb-6">
               <Lock size={28} className="text-green-bright" />
             </div>
-            <h1 className="text-2xl font-bold mb-3">Unlock FadeMe Pro</h1>
+            <h1 className="text-2xl font-bold mb-3">Unlock Unlimited Analyses</h1>
             <p className="text-text-dim mb-8 leading-relaxed">
-              Get unlimited AI bet analyses, edge detection, and clear recommendations.
+              You&apos;ve used your free analysis. Subscribe to keep finding edge.
             </p>
-
             <div className="rounded-2xl border border-green-bright/30 bg-card p-6 mb-6 text-left">
               <div className="flex items-end gap-2 mb-1">
                 <span className="text-4xl font-black text-white">$1</span>
@@ -284,10 +293,10 @@ function AnalyzePageInner() {
               <ul className="space-y-2.5 mb-6">
                 {[
                   "Unlimited screenshot analyses",
+                  "Daily AI picks from Kalshi, Polymarket & PredictIt",
                   "AI edge detection & grading (S–F)",
                   "BUY / HOLD / FADE recommendations",
                   "Bull case, bear case & key risks",
-                  "Works with Kalshi, Polymarket, PredictIt & more",
                 ].map((f) => (
                   <li key={f} className="flex items-center gap-2.5 text-sm text-white/80">
                     <CheckCircle size={14} className="text-green-bright shrink-0" />
@@ -306,10 +315,7 @@ function AnalyzePageInner() {
                     Redirecting to checkout...
                   </>
                 ) : (
-                  <>
-                    <Zap size={16} />
-                    Get Started — $1 First Week
-                  </>
+                  <><Zap size={16} /> Get Started — $1 First Week</>
                 )}
               </button>
             </div>
@@ -317,8 +323,8 @@ function AnalyzePageInner() {
           </div>
         )}
 
-        {/* Full analyzer — subscribers only */}
-        {subStatus === "active" && (
+        {/* Analyzer — active subscribers + free tier */}
+        {(subStatus === "active" || subStatus === "free" || (subStatus === "upgradeRequired" && result)) && (
           <>
             <div className="text-center mb-8">
               <h1 className="text-3xl font-bold mb-2">Analyze Your Bet</h1>
@@ -326,6 +332,16 @@ function AnalyzePageInner() {
                 Upload a screenshot from any prediction market — we&apos;ll grade it instantly.
               </p>
             </div>
+
+            {/* Free tier badge */}
+            {subStatus === "free" && (
+              <div className="mb-6 p-4 rounded-xl bg-[#00dc82]/10 border border-[#00dc82]/25 flex items-center gap-3">
+                <Zap size={16} className="text-green-bright shrink-0" />
+                <p className="text-green-bright text-sm font-medium">
+                  1 free analysis included — no credit card required
+                </p>
+              </div>
+            )}
 
             {!preview ? (
               <div
@@ -479,10 +495,34 @@ function AnalyzePageInner() {
                   <p className="text-text-dim text-sm">
                     Confidence: <span className="text-white">{result.analysis.confidenceLevel}</span>
                   </p>
-                  <button onClick={clearImage} className="flex items-center gap-1 text-sm text-green-bright hover:brightness-110 transition-colors">
-                    Analyze another <ChevronRight size={14} />
-                  </button>
+                  {subStatus === "active" && (
+                    <button onClick={clearImage} className="flex items-center gap-1 text-sm text-green-bright hover:brightness-110 transition-colors">
+                      Analyze another <ChevronRight size={14} />
+                    </button>
+                  )}
                 </div>
+              </div>
+            )}
+
+            {/* Sticky conversion banner — shown after free analysis result */}
+            {result && subStatus === "upgradeRequired" && (
+              <div className="sticky bottom-4 z-10 rounded-2xl border border-[#00dc82]/40 bg-[#070d1a]/95 backdrop-blur-md p-4 flex items-center justify-between gap-4 shadow-[0_0_30px_rgba(0,220,130,0.1)]">
+                <div>
+                  <p className="text-white font-semibold text-sm">You&apos;ve used your free analysis</p>
+                  <p className="text-text-dim text-xs">Get unlimited analyses + daily AI picks for $1/week</p>
+                </div>
+                <button
+                  onClick={startCheckout}
+                  disabled={checkoutLoading}
+                  className="shrink-0 px-4 py-2.5 rounded-xl bg-[#00dc82] text-[#070d1a] font-bold text-sm hover:brightness-110 transition-all disabled:opacity-60 flex items-center gap-1.5"
+                >
+                  {checkoutLoading ? (
+                    <span className="inline-block w-3.5 h-3.5 border-2 border-[#070d1a]/30 border-t-[#070d1a] rounded-full animate-spin" />
+                  ) : (
+                    <Zap size={13} />
+                  )}
+                  $1 First Week
+                </button>
               </div>
             )}
           </>

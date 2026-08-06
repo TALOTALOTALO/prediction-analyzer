@@ -88,7 +88,21 @@ export async function POST(req: NextRequest) {
   }
 
   if (!isActive) {
-    return NextResponse.json({ error: "Subscription required" }, { status: 403 });
+    // Allow one free analysis if they haven't used it yet
+    const { count, error: countErr } = await getSupabase()
+      .from("analyses")
+      .select("*", { count: "exact", head: true })
+      .eq("user_id", userId);
+
+    if (countErr) {
+      console.error("Free analysis count check failed:", countErr);
+      return NextResponse.json({ error: "Service temporarily unavailable" }, { status: 503 });
+    }
+
+    if ((count ?? 0) >= 1) {
+      return NextResponse.json({ error: "Subscribe to analyze more bets", upgradeRequired: true }, { status: 403 });
+    }
+    // count === 0 → fall through and allow the free analysis
   }
 
   try {
