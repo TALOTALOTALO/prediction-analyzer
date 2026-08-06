@@ -32,14 +32,14 @@ export async function POST() {
     return NextResponse.json({ synced: false, message: "No Stripe customer found for this account" });
   }
 
-  // Get their active/trialing subscriptions from Stripe
-  const subs = await stripe.subscriptions.list({ customer: customerId, limit: 5 });
+  // Only sync active or trialing subscriptions — never write a canceled status
+  const subs = await stripe.subscriptions.list({ customer: customerId, limit: 10 });
   const activeSub = subs.data.find((s) =>
     s.status === "active" || s.status === "trialing"
-  ) ?? subs.data[0];
+  );
 
   if (!activeSub) {
-    return NextResponse.json({ synced: false, message: "No Stripe subscription found" });
+    return NextResponse.json({ synced: false, message: "No active subscription found in Stripe" });
   }
 
   // Upsert to Supabase with correct userId

@@ -109,6 +109,7 @@ function AnalyzePageInner() {
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [portalLoading, setPortalLoading] = useState(false);
   const [syncLoading, setSyncLoading] = useState(false);
+  const [syncError, setSyncError] = useState<string | null>(null);
 
   const [dashPicks, setDashPicks] = useState<DashboardPick[]>([]);
   const [recentAnalyses, setRecentAnalyses] = useState<Array<{
@@ -173,15 +174,18 @@ function AnalyzePageInner() {
 
   const restoreSubscription = async () => {
     setSyncLoading(true);
+    setSyncError(null);
     try {
       const res = await fetch("/api/sync-subscription", { method: "POST" });
       const data = await res.json();
       if (data.synced) {
         window.location.reload();
       } else {
+        setSyncError(data.message ?? "No active subscription found. Contact support if you believe this is an error.");
         setSyncLoading(false);
       }
     } catch {
+      setSyncError("Something went wrong. Please try again.");
       setSyncLoading(false);
     }
   };
@@ -385,6 +389,9 @@ function AnalyzePageInner() {
                 {syncLoading ? "Restoring..." : "Restore subscription"}
               </button>
             </p>
+            {syncError && (
+              <p className="text-xs text-red-400 mt-2">{syncError}</p>
+            )}
           </div>
         )}
 
@@ -702,6 +709,9 @@ function AnalyzePageInner() {
                       {syncLoading ? "Restoring..." : "Already subscribed?"}
                     </button>
                   </p>
+                  {syncError && (
+                    <p className="text-red-400 text-xs mt-1">{syncError}</p>
+                  )}
                 </div>
                 <button
                   onClick={startCheckout}
