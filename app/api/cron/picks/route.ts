@@ -120,6 +120,12 @@ export async function GET(req: NextRequest) {
   ]);
 
   const allMarkets = [...kalshiMarkets, ...polyMarkets, ...predictItMarkets];
+
+  if (allMarkets.length === 0 && !newsContext && !marketNews) {
+    console.error("All market data sources returned empty — aborting to avoid hallucinated picks");
+    return NextResponse.json({ error: "No market data available" }, { status: 503 });
+  }
+
   const liveMarketsText = formatMarketsForClaude(allMarkets);
 
   const marketIntel = `=== LIVE MARKET PRICES (${allMarkets.length} markets) ===

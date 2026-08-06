@@ -30,9 +30,11 @@ export async function fetchKalshiMarkets(): Promise<LiveMarket[]> {
     if (keyId && privateKeyRaw) {
       const privateKey = privateKeyRaw.replace(/\\n/g, "\n");
       const ts = Date.now();
+      // Kalshi signs only the base path, not query string
+      const basePath = "/trade-api/v2/markets";
       headers["KALSHI-ACCESS-KEY"] = keyId;
       headers["KALSHI-ACCESS-TIMESTAMP"] = String(ts);
-      headers["KALSHI-ACCESS-SIGNATURE"] = kalshiSign(privateKey, ts, "GET", path);
+      headers["KALSHI-ACCESS-SIGNATURE"] = kalshiSign(privateKey, ts, "GET", basePath);
     }
 
     const res = await fetch(`https://api.elections.kalshi.com${path}`, { headers });
@@ -63,7 +65,7 @@ export async function fetchKalshiMarkets(): Promise<LiveMarket[]> {
 export async function fetchPolymarkets(): Promise<LiveMarket[]> {
   try {
     const res = await fetch(
-      "https://gamma-api.polymarket.com/markets?active=true&closed=false&limit=100&order=volume24hr&ascending=false",
+      "https://gamma-api.polymarket.com/markets?active=true&closed=false&limit=100&order=volume&ascending=false",
       { headers: { "Content-Type": "application/json" } }
     );
     if (!res.ok) return [];
@@ -80,15 +82,21 @@ export async function fetchPolymarkets(): Promise<LiveMarket[]> {
       })
       .slice(0, 30)
       .map((m) => {
-        const prices: string[] = JSON.parse((m.outcomePrices as string) ?? '["0.5","0.5"]');
+        let prices: string[];
+        try {
+          prices = JSON.parse((m.outcomePrices as string) ?? '["0.5","0.5"]');
+          if (!Array.isArray(prices)) prices = ["0.5", "0.5"];
+        } catch {
+          prices = ["0.5", "0.5"];
+        }
         const yesPrice = Math.round(parseFloat(prices[0] ?? "0.5") * 100);
         return {
           platform: "Polymarket",
           question: m.question as string,
           yesPrice,
           noPrice: 100 - yesPrice,
-          volume: parseFloat((m.volume as string) ?? "0"),
-          liquidity: parseFloat((m.liquidity as string) ?? "0"),
+          volume: (m.volumeNum as number) ?? parseFloat((m.volume as string) ?? "0"),
+          liquidity: (m.liquidityNum as number) ?? parseFloat((m.liquidity as string) ?? "0"),
           closesAt: m.endDate as string,
           category: (m.events as Array<{ category?: string }>)?.[0]?.category ?? "General",
         };
