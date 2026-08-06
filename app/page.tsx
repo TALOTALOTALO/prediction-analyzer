@@ -533,56 +533,6 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Simple earnings estimate */}
-      <section className="py-20 px-4 border-t border-border-subtle">
-        <div className="max-w-3xl mx-auto">
-          <SectionLabel>Quick Estimate</SectionLabel>
-          <h2 className="text-3xl md:text-4xl font-bold text-center mb-3">
-            What&apos;s a winning pick worth?
-          </h2>
-          <p className="text-text-dim text-center mb-10 max-w-xl mx-auto">
-            Adjust your average profit per winning bet and how many picks you make each month.
-          </p>
-
-          <div className="rounded-2xl border border-border-subtle bg-card p-8 space-y-8">
-            <div className="space-y-7">
-              <SliderField
-                label="Avg profit per winning bet"
-                value={avgProfit}
-                min={5}
-                max={200}
-                step={5}
-                format={(v) => `$${v}`}
-                onChange={setAvgProfit}
-              />
-              <SliderField
-                label="Picks per month"
-                value={picksPerMonth}
-                min={5}
-                max={100}
-                step={5}
-                format={(v) => `${v}`}
-                onChange={setPicksPerMonth}
-              />
-            </div>
-
-            <div className="rounded-xl bg-green-dim border border-green-bright/20 p-6 text-center">
-              <p className="text-text-dim text-sm mb-2">Estimated monthly profit</p>
-              <p className="text-4xl font-black text-green-bright">
-                ${monthlyProfit.toLocaleString()}
-              </p>
-              <p className="text-text-dim text-xs mt-2">
-                ${(monthlyProfit * 12).toLocaleString()} / year
-              </p>
-            </div>
-
-            <p className="text-xs text-text-dim text-center">
-              Results depend on bet selection, market conditions, and individual skill.
-            </p>
-          </div>
-        </div>
-      </section>
-
       {/* Testimonials */}
       <section className="py-20 px-4 border-t border-border-subtle">
         <div className="max-w-5xl mx-auto">
@@ -631,6 +581,56 @@ export default function LandingPage() {
                 Your screenshots are never stored. They go to our AI provider for analysis only and are discarded immediately — your privacy is protected end to end.
               </p>
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Simple earnings estimate */}
+      <section className="py-20 px-4 border-t border-border-subtle">
+        <div className="max-w-3xl mx-auto">
+          <SectionLabel>Quick Estimate</SectionLabel>
+          <h2 className="text-3xl md:text-4xl font-bold text-center mb-3">
+            What&apos;s a winning pick worth?
+          </h2>
+          <p className="text-text-dim text-center mb-10 max-w-xl mx-auto">
+            Adjust your average profit per winning bet and how many picks you make each month.
+          </p>
+
+          <div className="rounded-2xl border border-border-subtle bg-card p-8 space-y-8">
+            <div className="space-y-7">
+              <SliderField
+                label="Avg profit per winning bet"
+                value={avgProfit}
+                min={5}
+                max={200}
+                step={5}
+                format={(v) => `$${v}`}
+                onChange={setAvgProfit}
+              />
+              <SliderField
+                label="Picks per month"
+                value={picksPerMonth}
+                min={5}
+                max={100}
+                step={5}
+                format={(v) => `${v}`}
+                onChange={setPicksPerMonth}
+              />
+            </div>
+
+            <div className="rounded-xl bg-green-dim border border-green-bright/20 p-6 text-center">
+              <p className="text-text-dim text-sm mb-2">Estimated monthly profit</p>
+              <p className="text-4xl font-black text-green-bright">
+                ${monthlyProfit.toLocaleString()}
+              </p>
+              <p className="text-text-dim text-xs mt-2">
+                ${(monthlyProfit * 12).toLocaleString()} / year
+              </p>
+            </div>
+
+            <p className="text-xs text-text-dim text-center">
+              Results depend on bet selection, market conditions, and individual skill.
+            </p>
           </div>
         </div>
       </section>
