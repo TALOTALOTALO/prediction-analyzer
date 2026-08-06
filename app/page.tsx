@@ -222,6 +222,81 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* Betting blind section */}
+      <section className="py-20 px-4">
+        <div className="max-w-5xl mx-auto">
+          <SectionLabel>The Problem</SectionLabel>
+          <h2 className="text-3xl md:text-4xl font-bold text-center mb-3">
+            Right now, you&apos;re betting <span className="text-red-400">blind</span>.
+          </h2>
+          <p className="text-text-dim text-center mb-14 max-w-xl mx-auto">
+            Prediction markets are designed to take money from traders who guess on vibes. The market knows something you don&apos;t — and it&apos;s priced in.
+          </p>
+
+          <div className="grid md:grid-cols-3 gap-4 mb-10">
+            <div className="rounded-2xl border border-red-500/20 bg-red-500/5 p-6">
+              <div className="w-10 h-10 rounded-xl bg-red-500/10 flex items-center justify-center mb-4">
+                <EyeOff size={20} className="text-red-400" />
+              </div>
+              <h3 className="font-bold text-white mb-2">No real edge</h3>
+              <p className="text-text-dim text-sm leading-relaxed">
+                If you&apos;re picking markets based on headlines and gut feel, you&apos;re not a trader — you&apos;re the liquidity. The market is pricing off aggregated information you don&apos;t have.
+              </p>
+            </div>
+            <div className="rounded-2xl border border-red-500/20 bg-red-500/5 p-6">
+              <div className="w-10 h-10 rounded-xl bg-red-500/10 flex items-center justify-center mb-4">
+                <Ban size={20} className="text-red-400" />
+              </div>
+              <h3 className="font-bold text-white mb-2">Guessing ≠ winning</h3>
+              <p className="text-text-dim text-sm leading-relaxed">
+                Most Kalshi and Polymarket traders win 45–50% of the time — below break-even after fees. Random coin flips would perform the same. You need an actual system.
+              </p>
+            </div>
+            <div className="rounded-2xl border border-red-500/20 bg-red-500/5 p-6">
+              <div className="w-10 h-10 rounded-xl bg-red-500/10 flex items-center justify-center mb-4">
+                <TrendingUp size={20} className="text-red-400" style={{ transform: "scaleY(-1)" }} />
+              </div>
+              <h3 className="font-bold text-white mb-2">The market exploits you</h3>
+              <p className="text-text-dim text-sm leading-relaxed">
+                Markets are efficient machines that extract money from uninformed participants. Every trade you make without a probability advantage is a slow leak on your bankroll.
+              </p>
+            </div>
+          </div>
+
+          {/* VS divider */}
+          <div className="flex items-center gap-4 mb-10">
+            <div className="flex-1 h-px bg-border-subtle" />
+            <span className="text-text-dim text-xs uppercase tracking-widest font-medium">vs. trading with FadeMe</span>
+            <div className="flex-1 h-px bg-border-subtle" />
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-4">
+            <div className="rounded-2xl border border-green-bright/20 bg-green-dim p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 rounded-xl bg-green-bright/10 flex items-center justify-center">
+                  <BarChart2 size={20} className="text-green-bright" />
+                </div>
+                <h3 className="font-bold text-white">AI probability analysis on every bet</h3>
+              </div>
+              <p className="text-text-dim text-sm leading-relaxed">
+                Upload any screenshot. Our AI instantly calculates the true probability, compares it to the market price, and tells you whether you have an edge — or whether the market has one on you.
+              </p>
+            </div>
+            <div className="rounded-2xl border border-green-bright/20 bg-green-dim p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 rounded-xl bg-green-bright/10 flex items-center justify-center">
+                  <Sparkles size={20} className="text-green-bright" />
+                </div>
+                <h3 className="font-bold text-white">Expert AI coach that thinks like a sharp</h3>
+              </div>
+              <p className="text-text-dim text-sm leading-relaxed">
+                Our AI coach is trained on sharp bettor strategy — Kelly sizing, fade theory, market inefficiency. Ask it anything. It won&apos;t tell you what to feel — it&apos;ll tell you what the math says.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* What is Fading */}
       <section className="py-20 px-4">
         <div className="max-w-5xl mx-auto">
