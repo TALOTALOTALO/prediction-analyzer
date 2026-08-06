@@ -443,7 +443,7 @@ export default function HistoryPage() {
               ))}
             </div>
             <p className="text-center text-xs text-text-dim mt-6">
-              Tap any card to view full analysis and mark the outcome.
+              Tap any card to view the full analysis. Green cards resolved correctly — automatically.
             </p>
           </>
         )}

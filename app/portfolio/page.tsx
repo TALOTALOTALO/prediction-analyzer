@@ -70,6 +70,7 @@ function ResultBadge({ result }: { result: Trade["result"] }) {
 export default function PortfolioPage() {
   const [trades, setTrades] = useState<Trade[]>([]);
   const [portfolio, setPortfolio] = useState<Portfolio | null>(null);
+  const [isFree, setIsFree] = useState(true);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -81,6 +82,7 @@ export default function PortfolioPage() {
         else {
           setTrades(d.trades ?? []);
           setPortfolio(d.portfolio ?? null);
+          setIsFree(d.isFree ?? true);
         }
       })
       .catch(() => setError("Failed to load portfolio"))
@@ -152,8 +154,8 @@ export default function PortfolioPage() {
               />
             </div>
 
-            {/* Conversion CTA for free users */}
-            <div className="rounded-2xl border border-[#00dc82]/20 bg-[#00dc82]/5 p-5 flex flex-col sm:flex-row items-center justify-between gap-4 mb-8">
+            {/* Conversion CTA for free users only */}
+            {isFree && <div className="rounded-2xl border border-[#00dc82]/20 bg-[#00dc82]/5 p-5 flex flex-col sm:flex-row items-center justify-between gap-4 mb-8">
               <div>
                 <div className="flex items-center gap-2 mb-1">
                   <Trophy size={15} className="text-[#00dc82]" />
@@ -173,7 +175,7 @@ export default function PortfolioPage() {
               >
                 <Zap size={13} /> Get Pro — $1
               </Link>
-            </div>
+            </div>}
 
             {/* Trade history */}
             {trades.length === 0 ? (

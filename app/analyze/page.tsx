@@ -572,7 +572,7 @@ function AnalyzePageInner() {
 
                 {(result.analysis.entryStrategy || result.analysis.exitStrategy) && (
                   <div className="rounded-2xl border border-border-subtle bg-card p-6 space-y-4">
-                    <h3 className="font-semibold text-sm text-text-dim uppercase tracking-widest">Exit Strategy</h3>
+                    <h3 className="font-semibold text-sm text-text-dim uppercase tracking-widest">Entry & Exit Strategy</h3>
                     {result.analysis.entryStrategy && (
                       <div className="flex items-start gap-3">
                         <div className="w-7 h-7 rounded-lg bg-green-bright/10 flex items-center justify-center shrink-0 mt-0.5">

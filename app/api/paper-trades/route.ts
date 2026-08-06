@@ -9,6 +9,16 @@ export async function GET() {
   const { userId } = await auth();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  const { data: sub } = await getSupabase()
+    .from("subscriptions")
+    .select("status")
+    .eq("user_id", userId)
+    .single();
+
+  const isActive = sub?.status === "active" || sub?.status === "trialing";
+  const isAdmin = userId === process.env.ADMIN_USER_ID;
+  const isFree = !isActive && !isAdmin;
+
   const { data: trades, error } = await getSupabase()
     .from("paper_trades")
     .select(`*, daily_picks(event, platform, position, odds, grade, recommendation, pick_date)`)
@@ -33,6 +43,7 @@ export async function GET() {
   return NextResponse.json({
     trades: trades ?? [],
     portfolio: { balance, pnl, wins, losses, pending, winRate, totalStaked, startingBalance: STARTING_BALANCE },
+    isFree,
   });
 }
 
