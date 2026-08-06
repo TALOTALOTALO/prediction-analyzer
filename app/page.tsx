@@ -18,6 +18,7 @@ import {
   Ban,
   ChevronDown,
   Clock,
+  Sparkles,
 } from "lucide-react";
 import { UserButton, useUser } from "@clerk/nextjs";
 import { sanityClient, type Post } from "@/lib/sanity";
@@ -268,6 +269,66 @@ export default function LandingPage() {
             {STEPS.map((step) => (
               <StepCard key={step.number} {...step} />
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Daily AI Picks */}
+      <section className="py-20 px-4 border-t border-border-subtle">
+        <div className="max-w-5xl mx-auto">
+          <SectionLabel>Daily AI Picks</SectionLabel>
+          <h2 className="text-3xl md:text-4xl font-bold text-center mb-3">
+            We do the scanning.{" "}
+            <span className="text-green-bright">You make the plays.</span>
+          </h2>
+          <p className="text-text-dim text-center mb-14 max-w-2xl mx-auto">
+            Every morning our AI scans hundreds of markets across Kalshi, Polymarket, and PredictIt,
+            cross-references live news sources, and surfaces only the highest-conviction plays.
+            No guesswork — just picks backed by real analysis, delivered to your inbox daily.
+          </p>
+
+          <div className="grid md:grid-cols-2 gap-8 items-center">
+            {/* How picks work */}
+            <div className="space-y-5">
+              {[
+                {
+                  step: "01",
+                  title: "200+ markets scanned daily",
+                  desc: "Our AI reads every open contract across Kalshi, Polymarket, and PredictIt — prices, volume, liquidity, and expiry.",
+                },
+                {
+                  step: "02",
+                  title: "Live news cross-referenced",
+                  desc: "Breaking news, economic data, and event context are pulled in real-time so every pick reflects what's actually happening right now.",
+                },
+                {
+                  step: "03",
+                  title: "Only S and A grades make the cut",
+                  desc: "We filter hard. If there's no genuine edge, we don't pick it. Subscribers get 3–6 high-conviction plays — not a list of maybes.",
+                },
+              ].map(({ step, title, desc }) => (
+                <div key={step} className="flex items-start gap-4">
+                  <div className="shrink-0 w-8 h-8 rounded-full bg-green-bright text-[#070d1a] font-black text-xs flex items-center justify-center">
+                    {step}
+                  </div>
+                  <div>
+                    <p className="text-white font-semibold text-sm mb-1">{title}</p>
+                    <p className="text-text-dim text-sm leading-relaxed">{desc}</p>
+                  </div>
+                </div>
+              ))}
+
+              <Link
+                href="/analyze"
+                className="inline-flex items-center gap-2 mt-2 px-5 py-2.5 rounded-xl bg-green-bright text-[#070d1a] font-bold text-sm hover:brightness-110 transition-all"
+              >
+                <Zap size={14} />
+                Get Daily Picks — $1 First Week
+              </Link>
+            </div>
+
+            {/* Mock pick card */}
+            <DailyPickCardMock />
           </div>
         </div>
       </section>
@@ -558,6 +619,54 @@ function ProbRowMini({ label, value, color }: { label: string; value: number; co
       <div className="h-1.5 bg-white/5 rounded-full">
         <div className={`h-full rounded-full ${color}`} style={{ width: `${value}%` }} />
       </div>
+    </div>
+  );
+}
+
+function DailyPickCardMock() {
+  return (
+    <div className="rounded-2xl border border-[#00dc82]/30 bg-card p-6 shadow-2xl space-y-4">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Sparkles size={14} className="text-green-bright" />
+          <span className="text-xs font-semibold text-green-bright uppercase tracking-wider">AI-Curated Pick</span>
+        </div>
+        <span className="text-xs text-text-dim bg-white/5 px-2.5 py-1 rounded-full">Today · Kalshi</span>
+      </div>
+
+      {/* Grade + rec row */}
+      <div className="flex items-center gap-3">
+        <div className="w-14 h-14 rounded-xl bg-[#00dc82]/10 border border-[#00dc82]/40 flex items-center justify-center shrink-0">
+          <span className="text-2xl font-black text-[#00dc82]">A</span>
+        </div>
+        <div className="flex-1">
+          <p className="text-white font-bold text-sm leading-snug">Will the Fed cut rates before Q4?</p>
+          <p className="text-text-dim text-xs mt-0.5">Politics · Expires Sep 30</p>
+        </div>
+        <div className="shrink-0 px-3 py-1.5 rounded-lg bg-[#00dc82]/15 text-[#00dc82] font-black text-sm">
+          BUY
+        </div>
+      </div>
+
+      {/* Prob bars */}
+      <div className="space-y-2">
+        <ProbRowMini label="Market" value={58} color="bg-blue-500" />
+        <ProbRowMini label="AI Estimate" value={71} color="bg-green-bright" />
+      </div>
+
+      {/* Edge */}
+      <div className="flex items-center justify-between text-xs border-t border-border-subtle pt-3">
+        <span className="text-text-dim">Edge</span>
+        <span className="text-green-bright font-bold">+13%</span>
+        <span className="text-text-dim">Confidence</span>
+        <span className="text-white font-medium">High</span>
+      </div>
+
+      {/* Reason */}
+      <p className="text-xs text-text-dim leading-relaxed border-t border-border-subtle pt-3">
+        Market underpricing rate cut probability given recent inflation data and Fed signaling. Strong edge with 60-day runway to resolution.
+      </p>
     </div>
   );
 }
