@@ -42,9 +42,10 @@ export async function GET() {
     .select("result")
     .not("result", "is", null);
 
-  const wins = allResolved?.filter((p) => p.result === "won").length ?? 0;
-  const losses = allResolved?.filter((p) => p.result === "lost").length ?? 0;
-  const voids = allResolved?.filter((p) => p.result === "void").length ?? 0;
+  const resolved = allResolved ?? [];
+  const wins = resolved.filter((p) => p.result === "won").length;
+  const losses = resolved.filter((p) => p.result === "lost").length;
+  const voids = resolved.filter((p) => p.result === "void").length;
   const total = wins + losses;
   const winRate = total > 0 ? Math.round((wins / total) * 100) : null;
 

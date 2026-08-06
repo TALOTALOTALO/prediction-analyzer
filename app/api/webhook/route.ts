@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
         const userId = sub.metadata?.userId;
         if (!userId) break;
 
-        await getSupabase().from("subscriptions").upsert({
+        const { error: upsertErr } = await getSupabase().from("subscriptions").upsert({
           user_id: userId,
           stripe_customer_id: sub.customer as string,
           stripe_subscription_id: sub.id,
@@ -36,6 +36,7 @@ export async function POST(req: NextRequest) {
           trial_end: sub.trial_end,
           updated_at: new Date().toISOString(),
         });
+        if (upsertErr) throw new Error(`Subscription upsert failed: ${upsertErr.message}`);
         break;
       }
 
@@ -44,10 +45,11 @@ export async function POST(req: NextRequest) {
         const userId = sub.metadata?.userId;
         if (!userId) break;
 
-        await getSupabase()
+        const { error: cancelErr } = await getSupabase()
           .from("subscriptions")
           .update({ status: "canceled", updated_at: new Date().toISOString() })
           .eq("user_id", userId);
+        if (cancelErr) throw new Error(`Subscription cancel failed: ${cancelErr.message}`);
         break;
       }
 
@@ -56,10 +58,11 @@ export async function POST(req: NextRequest) {
         const subId = invoice.subscription ?? null;
         if (!subId) break;
 
-        await getSupabase()
+        const { error: pastDueErr } = await getSupabase()
           .from("subscriptions")
           .update({ status: "past_due", updated_at: new Date().toISOString() })
           .eq("stripe_subscription_id", subId);
+        if (pastDueErr) throw new Error(`Past due update failed: ${pastDueErr.message}`);
         break;
       }
 

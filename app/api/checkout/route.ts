@@ -26,7 +26,8 @@ export async function POST() {
     }
 
     const user = await currentUser();
-    const email = user?.emailAddresses[0]?.emailAddress;
+    if (!user) return NextResponse.json({ error: "User not found" }, { status: 401 });
+    const email = user.emailAddresses[0]?.emailAddress;
     const stripe = getStripe();
 
     const sessionParams: Parameters<typeof stripe.checkout.sessions.create>[0] = {

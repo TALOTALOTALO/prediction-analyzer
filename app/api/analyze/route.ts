@@ -139,7 +139,10 @@ Return ONLY a JSON object with this exact structure (no markdown, no explanation
       ],
     });
 
-    const parseText = parseResponse.content[0].type === "text" ? parseResponse.content[0].text : "";
+    const parseText = parseResponse.content
+      .filter((b) => b.type === "text")
+      .map((b) => (b.type === "text" ? b.text : ""))
+      .join("");
     let detected: Record<string, unknown>;
     try {
       detected = JSON.parse(parseText.replace(/```json\n?|\n?```/g, "").trim());
