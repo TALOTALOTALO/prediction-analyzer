@@ -20,6 +20,8 @@ import {
   Lock,
   Settings,
   Sparkles,
+  LogIn,
+  LogOut,
 } from "lucide-react";
 
 interface DetectedBet {
@@ -48,6 +50,20 @@ interface BetAnalysis {
   keyRisks: string[];
   marketInefficiency: string;
   confidenceLevel: string;
+  entryStrategy: string;
+  exitStrategy: string;
+}
+
+interface DashboardPick {
+  id: string;
+  event: string;
+  platform: string;
+  grade: string;
+  recommendation: string;
+  confidence_level: string;
+  edge_score: number;
+  true_odds: number;
+  implied_probability: number;
 }
 
 interface AnalysisResult {
@@ -92,6 +108,8 @@ function AnalyzePageInner() {
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [portalLoading, setPortalLoading] = useState(false);
 
+  const [dashPicks, setDashPicks] = useState<DashboardPick[]>([]);
+
   const [dragActive, setDragActive] = useState(false);
   const [preview, setPreview] = useState<string | null>(null);
   const [imageData, setImageData] = useState<{ base64: string; mimeType: string } | null>(null);
@@ -104,10 +122,19 @@ function AnalyzePageInner() {
     fetch("/api/subscription")
       .then((r) => r.json())
       .then((d) => {
-        if (d.active) setSubStatus("active");
-        else if (d.freeAnalysisUsed) setSubStatus("upgradeRequired");
-        else setSubStatus("free");
-      });
+        if (d.active) {
+          setSubStatus("active");
+          fetch("/api/picks")
+            .then((r) => r.json())
+            .then((data) => { if (data.picks) setDashPicks(data.picks.slice(0, 3)); })
+            .catch(() => {});
+        } else if (d.freeAnalysisUsed) {
+          setSubStatus("upgradeRequired");
+        } else {
+          setSubStatus("free");
+        }
+      })
+      .catch(() => setSubStatus("free"));
   }, []);
 
   const startCheckout = async () => {
@@ -195,8 +222,8 @@ function AnalyzePageInner() {
       }
       if (!res.ok) throw new Error(data.error || "Analysis failed");
       setResult(data);
-      // After a free analysis succeeds, mark as used so next attempt shows upsell
-      if (subStatus === "free") setSubStatus("upgradeRequired");
+      // Mark free analysis as used — use functional updater to avoid stale closure
+      setSubStatus((prev) => (prev === "free" ? "upgradeRequired" : prev));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong. Try again.");
     } finally {
@@ -326,6 +353,46 @@ function AnalyzePageInner() {
         {/* Analyzer — active subscribers + free tier */}
         {(subStatus === "active" || subStatus === "free" || (subStatus === "upgradeRequired" && result)) && (
           <>
+            {/* Today's Picks preview — subscribers only */}
+            {subStatus === "active" && dashPicks.length > 0 && (
+              <div className="mb-10">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <Sparkles size={15} className="text-green-bright" />
+                    <span className="text-sm font-semibold text-white">Today&apos;s Picks</span>
+                  </div>
+                  <Link href="/picks" className="flex items-center gap-1 text-xs text-green-bright hover:brightness-110 transition-colors">
+                    View all <ChevronRight size={12} />
+                  </Link>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {dashPicks.map((pick) => {
+                    const isBuy = pick.recommendation === "BUY";
+                    const gs = GRADE_CONFIG[pick.grade] ?? GRADE_CONFIG["C"];
+                    return (
+                      <Link
+                        key={pick.id}
+                        href="/picks"
+                        className={`rounded-xl border ${gs.border} ${gs.bg} p-4 hover:brightness-110 transition-all block`}
+                      >
+                        <div className="flex items-center justify-between mb-2">
+                          <span className={`text-xl font-black ${gs.text}`}>{pick.grade}</span>
+                          <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${isBuy ? "bg-green-bright/10 text-green-bright" : "bg-red-500/10 text-red-400"}`}>
+                            {pick.recommendation}
+                          </span>
+                        </div>
+                        <p className="text-white text-xs font-medium leading-snug line-clamp-2 mb-2">{pick.event}</p>
+                        <div className="flex items-center justify-between text-xs text-text-dim">
+                          <span>{pick.platform}</span>
+                          <span>{pick.confidence_level}</span>
+                        </div>
+                      </Link>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             <div className="text-center mb-8">
               <h1 className="text-3xl font-bold mb-2">Analyze Your Bet</h1>
               <p className="text-text-dim">
@@ -488,6 +555,34 @@ function AnalyzePageInner() {
                       <p className="text-xs text-green-bright font-semibold uppercase tracking-wider mb-1">Market Insight</p>
                       <p className="text-sm text-white/80 leading-snug">{result.analysis.marketInefficiency}</p>
                     </div>
+                  </div>
+                )}
+
+                {(result.analysis.entryStrategy || result.analysis.exitStrategy) && (
+                  <div className="rounded-2xl border border-border-subtle bg-card p-6 space-y-4">
+                    <h3 className="font-semibold text-sm text-text-dim uppercase tracking-widest">Exit Strategy</h3>
+                    {result.analysis.entryStrategy && (
+                      <div className="flex items-start gap-3">
+                        <div className="w-7 h-7 rounded-lg bg-green-bright/10 flex items-center justify-center shrink-0 mt-0.5">
+                          <LogIn size={13} className="text-green-bright" />
+                        </div>
+                        <div>
+                          <p className="text-xs text-green-bright font-semibold uppercase tracking-wider mb-1">When to enter</p>
+                          <p className="text-sm text-white/80 leading-snug">{result.analysis.entryStrategy}</p>
+                        </div>
+                      </div>
+                    )}
+                    {result.analysis.exitStrategy && (
+                      <div className="flex items-start gap-3">
+                        <div className="w-7 h-7 rounded-lg bg-red-500/10 flex items-center justify-center shrink-0 mt-0.5">
+                          <LogOut size={13} className="text-red-400" />
+                        </div>
+                        <div>
+                          <p className="text-xs text-red-400 font-semibold uppercase tracking-wider mb-1">When to walk away</p>
+                          <p className="text-sm text-white/80 leading-snug">{result.analysis.exitStrategy}</p>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
 

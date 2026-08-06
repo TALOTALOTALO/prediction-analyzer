@@ -88,21 +88,32 @@ export async function POST(req: NextRequest) {
   }
 
   if (!isActive) {
-    // Allow one free analysis if they haven't used it yet
-    const { count, error: countErr } = await getSupabase()
-      .from("analyses")
-      .select("*", { count: "exact", head: true })
-      .eq("user_id", userId);
+    // Atomically claim the free analysis slot — unique constraint on user_id prevents races
+    const { error: claimErr } = await getSupabase()
+      .from("free_analysis_claims")
+      .insert({ user_id: userId });
 
-    if (countErr) {
-      console.error("Free analysis count check failed:", countErr);
-      return NextResponse.json({ error: "Service temporarily unavailable" }, { status: 503 });
-    }
+    if (claimErr) {
+      if (claimErr.code === "23505") {
+        // Unique violation — free analysis already used
+        return NextResponse.json({ error: "Subscribe to analyze more bets", upgradeRequired: true }, { status: 403 });
+      }
+      // Table may not exist yet — fall back to count check
+      const { count, error: countErr } = await getSupabase()
+        .from("analyses")
+        .select("*", { count: "exact", head: true })
+        .eq("user_id", userId);
 
-    if ((count ?? 0) >= 1) {
-      return NextResponse.json({ error: "Subscribe to analyze more bets", upgradeRequired: true }, { status: 403 });
+      if (countErr) {
+        console.error("Free analysis count check failed:", countErr);
+        return NextResponse.json({ error: "Service temporarily unavailable" }, { status: 503 });
+      }
+
+      if ((count ?? 0) >= 1) {
+        return NextResponse.json({ error: "Subscribe to analyze more bets", upgradeRequired: true }, { status: 403 });
+      }
     }
-    // count === 0 → fall through and allow the free analysis
+    // Claim succeeded → fall through and allow the free analysis
   }
 
   try {
@@ -188,7 +199,9 @@ Return ONLY a JSON object with this exact structure (no markdown, no explanation
   "bearCase": "string (strongest argument AGAINST this position)",
   "keyRisks": ["string", "string", "string"] (3 specific risks to be aware of),
   "marketInefficiency": "string (any notable pricing inefficiency or why the market may be mispriced)",
-  "confidenceLevel": "string (Low, Medium, High, Very High)"
+  "confidenceLevel": "string (Low, Medium, High, Very High)",
+  "entryStrategy": "string (exactly when to pull the trigger — current conditions, price thresholds, or signals to watch for before entering)",
+  "exitStrategy": "string (exactly when to walk away — what news, price movement, or event would make this bet invalid and you should cut your position)"
 }
 
 Grading scale:
@@ -246,6 +259,8 @@ Be rigorous and realistic. Most bets should grade C or lower.`;
         key_risks: analysis.keyRisks,
         market_inefficiency: analysis.marketInefficiency,
         confidence_level: analysis.confidenceLevel,
+        entry_strategy: analysis.entryStrategy,
+        exit_strategy: analysis.exitStrategy,
         has_live_context: !!newsContext,
       });
       if (dbErr) console.error("Failed to save analysis:", dbErr);

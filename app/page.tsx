@@ -19,6 +19,7 @@ import {
   ChevronDown,
   Clock,
 } from "lucide-react";
+import { UserButton, useUser } from "@clerk/nextjs";
 import { sanityClient, type Post } from "@/lib/sanity";
 
 function FaqItem({ question, answer }: { question: string; answer: string }) {
@@ -47,6 +48,7 @@ function FaqItem({ question, answer }: { question: string; answer: string }) {
 }
 
 export default function LandingPage() {
+  const { isLoaded, isSignedIn } = useUser();
   const [avgProfit, setAvgProfit] = useState(25);
   const [picksPerMonth, setPicksPerMonth] = useState(20);
   const [latestPost, setLatestPost] = useState<Post | null>(null);
@@ -81,12 +83,32 @@ export default function LandingPage() {
             <a href="#faq" className="hover:text-white transition-colors">FAQ</a>
             <Link href="/blog" className="hover:text-white transition-colors">Blog</Link>
           </div>
-          <Link
-            href="/analyze"
-            className="px-4 py-2 rounded-lg bg-green-bright text-[#070d1a] font-semibold text-sm hover:brightness-110 transition-all"
-          >
-            Try Free
-          </Link>
+          {isLoaded && isSignedIn ? (
+            <div className="flex items-center gap-3">
+              <Link
+                href="/analyze"
+                className="px-4 py-2 rounded-lg bg-green-bright text-[#070d1a] font-semibold text-sm hover:brightness-110 transition-all"
+              >
+                Go to app
+              </Link>
+              <UserButton />
+            </div>
+          ) : (
+            <div className="flex items-center gap-3">
+              <Link
+                href="/sign-in"
+                className="text-sm text-text-dim hover:text-white transition-colors"
+              >
+                Sign in
+              </Link>
+              <Link
+                href="/analyze"
+                className="px-4 py-2 rounded-lg bg-green-bright text-[#070d1a] font-semibold text-sm hover:brightness-110 transition-all"
+              >
+                Try Free
+              </Link>
+            </div>
+          )}
         </div>
       </nav>
 

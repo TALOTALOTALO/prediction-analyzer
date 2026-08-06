@@ -14,6 +14,8 @@ import {
   ChevronUp,
   Clock,
   Zap,
+  LogIn,
+  LogOut,
 } from "lucide-react";
 import { UserButton } from "@clerk/nextjs";
 
@@ -41,6 +43,8 @@ interface AnalysisRow {
   key_risks: string[];
   market_inefficiency: string;
   confidence_level: string;
+  entry_strategy: string;
+  exit_strategy: string;
   has_live_context: boolean;
 }
 
@@ -182,6 +186,30 @@ function AnalysisCard({ row }: { row: AnalysisRow }) {
             <div className="rounded-xl p-3 bg-green-dim border border-[#00dc82]/15 flex items-start gap-2">
               <Shield size={13} className="text-[#00dc82] shrink-0 mt-0.5" />
               <p className="text-xs text-white/70 leading-snug">{row.market_inefficiency}</p>
+            </div>
+          )}
+
+          {(row.entry_strategy || row.exit_strategy) && (
+            <div className="rounded-xl border border-border-subtle bg-white/[0.02] p-3 space-y-3">
+              <p className="text-xs text-text-dim uppercase tracking-wider font-semibold">Exit Strategy</p>
+              {row.entry_strategy && (
+                <div className="flex items-start gap-2">
+                  <LogIn size={12} className="text-green-bright shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-xs text-green-bright font-semibold mb-0.5">When to enter</p>
+                    <p className="text-xs text-white/70 leading-snug">{row.entry_strategy}</p>
+                  </div>
+                </div>
+              )}
+              {row.exit_strategy && (
+                <div className="flex items-start gap-2">
+                  <LogOut size={12} className="text-red-400 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-xs text-red-400 font-semibold mb-0.5">When to walk away</p>
+                    <p className="text-xs text-white/70 leading-snug">{row.exit_strategy}</p>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

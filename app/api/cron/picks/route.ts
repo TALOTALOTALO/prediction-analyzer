@@ -18,7 +18,7 @@ async function sendPicksDigest(picks: Record<string, unknown>[], dateLabel: stri
   const { data: subs } = await getSupabase()
     .from("subscriptions")
     .select("user_id")
-    .eq("status", "active");
+    .in("status", ["active", "trialing"]);
 
   if (!subs || subs.length === 0) return;
 

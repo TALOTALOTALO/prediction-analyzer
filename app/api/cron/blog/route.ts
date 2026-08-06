@@ -65,7 +65,7 @@ function textToPortableText(text: string): unknown[] {
       _key: String(key++),
       style,
       children,
-      markDefs: [{ _type: "strong", _key: "strong" }],
+      markDefs: [],
     });
   }
 

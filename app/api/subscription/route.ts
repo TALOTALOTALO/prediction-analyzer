@@ -22,14 +22,15 @@ export async function GET() {
 
     const active = data?.status === "active" || data?.status === "trialing";
 
-    // For non-subscribers, check if they've used their free analysis
+    // For non-subscribers, check the atomic claims table (consistent with the analyze gate)
     let freeAnalysisUsed = false;
     if (!active) {
-      const { count } = await getSupabase()
-        .from("analyses")
-        .select("*", { count: "exact", head: true })
-        .eq("user_id", userId);
-      freeAnalysisUsed = (count ?? 0) >= 1;
+      const { data: claim } = await getSupabase()
+        .from("free_analysis_claims")
+        .select("user_id")
+        .eq("user_id", userId)
+        .single();
+      freeAnalysisUsed = !!claim;
     }
 
     return NextResponse.json({ active, freeAnalysisUsed, trialEnd: data?.trial_end ?? null });
