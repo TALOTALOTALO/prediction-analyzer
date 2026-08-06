@@ -50,30 +50,17 @@ function FaqItem({ question, answer }: { question: string; answer: string }) {
 
 export default function LandingPage() {
   const { isLoaded, isSignedIn } = useUser();
-  const [bankroll, setBankroll] = useState(2000);
-  const [avgOdds, setAvgOdds] = useState(55);   // implied probability %
-  const [winRate, setWinRate] = useState(62);    // prediction accuracy %
+  const [profitPerWin, setProfitPerWin] = useState(25);
+  const [tradesPerMonth, setTradesPerMonth] = useState(20);
+  const [winBoost, setWinBoost] = useState(10);
   const [avgProfit, setAvgProfit] = useState(25);
   const [picksPerMonth, setPicksPerMonth] = useState(20);
   const [latestPost, setLatestPost] = useState<Post | null>(null);
 
   const monthlyProfit = avgProfit * picksPerMonth;
-
-  const MONTHLY_PICKS = 20;
-  const BASELINE_WIN_RATE = 48;
-  const betSize = bankroll * 0.05;
-
-  function calcMonthly(wr: number) {
-    const wrFrac = wr / 100;
-    const oddsFrac = avgOdds / 100;
-    const profitPerWin = betSize * (1 - oddsFrac) / oddsFrac;
-    return MONTHLY_PICKS * (wrFrac * profitPerWin - (1 - wrFrac) * betSize);
-  }
-
-  const userMonthly = calcMonthly(winRate);
-  const baselineMonthly = calcMonthly(BASELINE_WIN_RATE);
-  const difference = userMonthly - baselineMonthly;
-  const breakEvenRate = avgOdds;
+  const extraWins = tradesPerMonth * (winBoost / 100);
+  const extraMonthly = Math.round(extraWins * profitPerWin);
+  const extraAnnual = extraMonthly * 12;
 
   useEffect(() => {
     sanityClient
@@ -383,101 +370,77 @@ export default function LandingPage() {
         <div className="max-w-3xl mx-auto">
           <SectionLabel>Profit Calculator</SectionLabel>
           <h2 className="text-3xl md:text-4xl font-bold text-center mb-3">
-            What&apos;s your edge worth?
+            What&apos;s smarter research worth?
           </h2>
           <p className="text-text-dim text-center mb-10 max-w-xl mx-auto">
-            Small improvements in bet selection compound into significant returns.
+            Even a small improvement in how often you&apos;re right adds up fast. Drag the sliders to see your upside.
           </p>
 
           <div className="rounded-2xl border border-border-subtle bg-card p-8 space-y-8">
-            {/* Sliders */}
             <div className="space-y-7">
               <SliderField
-                label="Starting bankroll"
-                value={bankroll}
-                min={500}
-                max={10000}
-                step={250}
-                format={(v) => `$${v.toLocaleString()}`}
-                onChange={setBankroll}
-                note={`$${betSize.toFixed(0)}/pick (5% bet size)`}
+                label="Avg profit per winning trade"
+                value={profitPerWin}
+                min={5}
+                max={200}
+                step={5}
+                format={(v) => `$${v}`}
+                onChange={setProfitPerWin}
               />
               <SliderField
-                label="Avg market odds"
-                value={avgOdds}
-                min={50}
-                max={70}
-                step={1}
-                format={(v) => `${v}¢`}
-                onChange={setAvgOdds}
-                note={`Break-even at ${breakEvenRate}% correct`}
+                label="Trades per month"
+                value={tradesPerMonth}
+                min={5}
+                max={100}
+                step={5}
+                format={(v) => `${v}`}
+                onChange={setTradesPerMonth}
               />
               <SliderField
-                label="Your win rate"
-                value={winRate}
-                min={45}
-                max={75}
+                label="Win rate improvement with AI research"
+                value={winBoost}
+                min={5}
+                max={30}
                 step={1}
-                format={(v) => `${v}%`}
-                onChange={setWinRate}
-                note={
-                  winRate > breakEvenRate
-                    ? `+${(winRate - breakEvenRate).toFixed(0)}% edge — you have an advantage`
-                    : winRate === breakEvenRate
-                    ? "Exactly at break-even"
-                    : `${(winRate - breakEvenRate).toFixed(0)}% edge — market has advantage`
-                }
-                noteColor={winRate > breakEvenRate ? "text-green-bright" : winRate < breakEvenRate ? "text-red-400" : "text-yellow-400"}
+                format={(v) => `+${v}%`}
+                onChange={setWinBoost}
+                note={`${extraWins.toFixed(1)} more winning trades / month`}
+                noteColor="text-green-bright"
               />
             </div>
 
-            {/* Comparison result */}
-            <div className="grid grid-cols-2 gap-3">
-              <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-4 text-center">
-                <p className="text-text-dim text-xs mb-1">Avg bettor (48% win rate)</p>
-                <p className={`text-2xl font-black ${baselineMonthly >= 0 ? "text-green-bright" : "text-red-400"}`}>
-                  {baselineMonthly >= 0 ? "+" : ""}${Math.abs(baselineMonthly).toFixed(0)}
-                  <span className="text-sm font-normal text-text-dim">/mo</span>
-                </p>
-                <p className="text-xs text-text-dim mt-1">
-                  {baselineMonthly >= 0 ? "+" : ""}${Math.abs(baselineMonthly * 12).toFixed(0)}/yr
-                </p>
-              </div>
-              <div className="rounded-xl border border-green-bright/30 bg-green-dim p-4 text-center">
-                <p className="text-text-dim text-xs mb-1">You ({winRate}% win rate)</p>
-                <p className={`text-2xl font-black ${userMonthly >= 0 ? "text-green-bright" : "text-red-400"}`}>
-                  {userMonthly >= 0 ? "+" : ""}${Math.abs(userMonthly).toFixed(0)}
-                  <span className="text-sm font-normal text-text-dim">/mo</span>
-                </p>
-                <p className="text-xs text-text-dim mt-1">
-                  {userMonthly >= 0 ? "+" : ""}${Math.abs(userMonthly * 12).toFixed(0)}/yr
-                </p>
+            {/* Result */}
+            <div className="rounded-xl bg-green-dim border border-green-bright/20 p-6">
+              <p className="text-text-dim text-sm text-center mb-4">Extra profit from smarter picks</p>
+              <div className="flex items-end justify-center gap-6">
+                <div className="text-center">
+                  <p className="text-4xl font-black text-green-bright">+${extraMonthly.toLocaleString()}</p>
+                  <p className="text-text-dim text-xs mt-1">per month</p>
+                </div>
+                <div className="text-center pb-1">
+                  <p className="text-2xl font-bold text-white/60">+${extraAnnual.toLocaleString()}</p>
+                  <p className="text-text-dim text-xs mt-1">per year</p>
+                </div>
               </div>
             </div>
 
-            {/* Difference callout */}
+            {/* Callout */}
             <div className="rounded-xl bg-green-bright/5 border border-green-bright/20 p-4 flex items-center justify-between gap-4">
-              <div>
-                <p className="text-white font-semibold text-sm">
-                  Research adds <span className="text-green-bright">${Math.abs(difference).toFixed(0)}/mo</span>
-                </p>
-                <p className="text-text-dim text-xs mt-0.5">
-                  {winRate - BASELINE_WIN_RATE > 0
-                    ? `${winRate - BASELINE_WIN_RATE} more correct picks per 100 = ${difference >= 0 ? "profit" : "smaller loss"}`
-                    : `Set win rate above ${BASELINE_WIN_RATE}% to see your edge`}
-                </p>
-              </div>
+              <p className="text-text-dim text-sm">
+                Getting <span className="text-white font-semibold">{winBoost}% more picks right</span> on {tradesPerMonth} trades
+                adds <span className="text-green-bright font-semibold">{extraWins.toFixed(1)} wins/mo</span> — that&apos;s real money left on the table without research.
+              </p>
               <Link
                 href="/analyze"
                 className="shrink-0 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-green-bright text-[#070d1a] font-bold text-xs hover:brightness-110 transition-all"
               >
                 <Zap size={12} />
-                Build your edge
+                Start now
               </Link>
             </div>
 
             <p className="text-xs text-text-dim text-center">
-              Assumes 5% bet size · {MONTHLY_PICKS} picks/month · for illustrative purposes only.
+              For illustrative purposes only. Results vary based on market conditions and individual skill.
             </p>
           </div>
         </div>
