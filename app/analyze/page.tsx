@@ -295,7 +295,7 @@ function AnalyzePageInner() {
           </Link>
           <div className="flex items-center gap-3">
             {subStatus === "active" && (
-              <>
+              <div className="hidden sm:flex items-center gap-3">
                 <Link href="/picks" className="flex items-center gap-1 text-xs text-[#00dc82] hover:brightness-110 transition-colors font-medium">
                   <Sparkles size={12} />
                   Today&apos;s Picks
@@ -318,7 +318,7 @@ function AnalyzePageInner() {
                   )}
                   Manage Plan
                 </button>
-              </>
+              </div>
             )}
             <UserButton />
           </div>
