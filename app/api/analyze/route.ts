@@ -141,17 +141,77 @@ export async function POST(req: NextRequest) {
             {
               type: "text",
               text: `Analyze this prediction market screenshot and extract all bet details.
-Return ONLY a JSON object with this exact structure (no markdown, no explanation):
+
+PLATFORM IDENTIFICATION GUIDE — use these visual fingerprints to identify the platform:
+
+Kalshi:
+- Dark navy/charcoal background (#0a0e1a or similar)
+- YES/NO binary contracts priced in cents (e.g. "72¢" or "72%")
+- Ticker symbols in the format KXBTC-25DEC, PRES-2024, INX-25, etc.
+- "Kalshi" wordmark or kalshi.com URL visible
+- Green accent color for YES, red for NO
+- Markets labeled "Event Contracts" or "Prediction Markets"
+- Contract expiry shown as a date (e.g. "Expires Dec 31")
+
+Polymarket:
+- Dark background with blue/purple accent colors
+- Prices shown as percentages or decimals (e.g. "72%" or "0.72 USDC")
+- USDC as the currency — "USDC", "$USDC", or crypto wallet references
+- "Polymarket" wordmark or polymarket.com URL
+- Outcome shares shown with Buy/Sell buttons
+- Markets often show liquidity, volume in USDC
+- Condition IDs visible in URL (long hex string)
+
+PredictIt:
+- White or light background (notable contrast vs dark platforms)
+- Share-based pricing (e.g. "72¢ per share", "Yes shares", "No shares")
+- "PredictIt" wordmark or predictit.org URL
+- $850 max investment limit often referenced
+- Political markets dominant (elections, legislation)
+- "Buy Yes" / "Buy No" button labels
+
+Manifold:
+- Light or white background with colorful UI
+- Uses "mana" (M$) as currency — M$, mana tokens
+- "Manifold" wordmark or manifold.markets URL
+- Social/community features visible (comments, likes)
+- Creator name shown prominently
+- Probability shown as a large percentage
+
+Metaculus:
+- Clean light background, academic/research aesthetic
+- Questions worded precisely with resolution criteria
+- Crowd forecast shown as a percentage
+- "Metaculus" wordmark or metaculus.com URL
+- No direct betting — forecasting/prediction platform
+- Shows community prediction vs your prediction
+
+Smarkets:
+- "Smarkets" wordmark or smarkets.com URL
+- Exchange-style odds (decimal or fractional)
+- Back/Lay betting (exchange format)
+- Sports and politics markets
+
+Betfair:
+- "Betfair" wordmark or betfair.com URL
+- Blue and yellow brand colors
+- Back/Lay exchange format
+- Decimal odds (e.g. 1.72, 3.50)
+- Sports markets dominant
+
+If you see a platform not listed above, use the wordmark, URL, or distinctive UI elements to identify it. If the platform cannot be determined, use "unknown".
+
+Now extract all bet details and return ONLY a JSON object with this exact structure (no markdown, no explanation):
 {
-  "platform": "string (e.g. Kalshi, Polymarket, PredictIt, unknown)",
+  "platform": "string (Kalshi, Polymarket, PredictIt, Manifold, Metaculus, Smarkets, Betfair, or unknown)",
   "event": "string (what is being predicted)",
   "position": "string (YES or NO, or the specific option chosen)",
-  "odds": "string (e.g. 72¢, 72%, +145, -110)",
+  "odds": "string (e.g. 72¢, 72%, +145, -110, 1.72)",
   "impliedProbability": number (0-100, the market's implied probability as a percentage),
   "stake": "string (amount being risked, or 'unknown')",
   "potentialPayout": "string (potential return, or 'unknown')",
   "expirationDate": "string (when the bet resolves, or 'unknown')",
-  "category": "string (e.g. Politics, Sports, Finance, Economics, Entertainment, Other)",
+  "category": "string (e.g. Politics, Sports, Finance, Economics, Entertainment, Crypto, Other)",
   "rawText": "string (any other relevant text visible in the screenshot)",
   "marketId": "string or null (Kalshi ticker e.g. KXBTC-24DEC, or Polymarket condition ID if visible in the URL or page — null if not visible)"
 }`,
