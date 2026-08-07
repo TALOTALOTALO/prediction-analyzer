@@ -146,12 +146,18 @@ PLATFORM IDENTIFICATION GUIDE — use these visual fingerprints to identify the 
 
 Kalshi:
 - Dark navy/charcoal background (#0a0e1a or similar)
-- YES/NO binary contracts priced in cents (e.g. "72¢" or "72%")
+- Binary contracts: priced in cents or % (e.g. "72¢" or "72%"), YES/NO outcomes
 - Ticker symbols in the format KXBTC-25DEC, PRES-2024, INX-25, etc.
 - "Kalshi" wordmark or kalshi.com URL visible
 - Green accent color for YES, red for NO
 - Markets labeled "Event Contracts" or "Prediction Markets"
 - Contract expiry shown as a date (e.g. "Expires Dec 31")
+- Sports/multi-outcome markets: team or outcome names listed vertically, each with a multiplier (e.g. "2.01x", "3.80x") and a percentage in a green circle badge
+- Volume shown as "$X,XXX vol" at the bottom
+- "Spread and Total · N markets" label visible for sports markets
+- League or event branding at the top (e.g. CPL logo, NFL shield)
+- Colored horizontal underlines beneath team names (green, blue, orange)
+- No "Kalshi" text may be visible if the screenshot is cropped — identify by the dark background + multiplier + percentage circle combination
 
 Polymarket:
 - Dark background with blue/purple accent colors
