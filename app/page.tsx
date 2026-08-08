@@ -19,6 +19,9 @@ import {
   ChevronDown,
   Clock,
   Sparkles,
+  Trophy,
+  ExternalLink,
+  Mail,
 } from "lucide-react";
 import { UserButton, useUser } from "@clerk/nextjs";
 import { sanityClient, type Post } from "@/lib/sanity";
@@ -56,11 +59,21 @@ export default function LandingPage() {
   const [avgProfit, setAvgProfit] = useState(25);
   const [picksPerMonth, setPicksPerMonth] = useState(20);
   const [latestPost, setLatestPost] = useState<Post | null>(null);
+  const [winRecord, setWinRecord] = useState<{ wins: number; losses: number; winRate: number | null; total: number } | null>(null);
+  const [leadEmail, setLeadEmail] = useState("");
+  const [leadStatus, setLeadStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
 
   const monthlyProfit = avgProfit * picksPerMonth;
   const extraWins = tradesPerMonth * (winBoost / 100);
   const extraMonthly = Math.round(extraWins * profitPerWin);
   const extraAnnual = extraMonthly * 12;
+
+  useEffect(() => {
+    fetch("/api/record")
+      .then((r) => r.json())
+      .then((d) => { if (d.record?.total > 0) setWinRecord(d.record); })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     sanityClient
@@ -72,6 +85,22 @@ export default function LandingPage() {
       .then(setLatestPost)
       .catch(() => {});
   }, []);
+
+  const submitLeadEmail = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!leadEmail || leadStatus === "loading") return;
+    setLeadStatus("loading");
+    try {
+      const res = await fetch("/api/email-capture", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: leadEmail }),
+      });
+      setLeadStatus(res.ok ? "success" : "error");
+    } catch {
+      setLeadStatus("error");
+    }
+  };
 
   return (
     <div className="min-h-screen bg-bg overflow-x-hidden">
@@ -89,6 +118,7 @@ export default function LandingPage() {
             <a href="#features" className="hover:text-white transition-colors">Features</a>
             <a href="#faq" className="hover:text-white transition-colors">FAQ</a>
             <Link href="/blog" className="hover:text-white transition-colors">Blog</Link>
+            <Link href="/record" className="hover:text-white transition-colors">Track Record</Link>
           </div>
           {isLoaded && isSignedIn ? (
             <div className="flex items-center gap-3">
@@ -433,6 +463,71 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* Email capture */}
+      <section className="py-20 px-4 border-t border-border-subtle">
+        <div className="max-w-2xl mx-auto text-center">
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-green-bright/25 bg-green-dim text-green-bright text-xs font-medium mb-5">
+            <Mail size={12} />
+            Free · No account required
+          </div>
+          <h2 className="text-3xl md:text-4xl font-bold mb-3">
+            See what our AI is calling this week.
+          </h2>
+          <p className="text-text-dim text-lg mb-2 max-w-lg mx-auto leading-relaxed">
+            Drop your email and we&apos;ll send you our top AI picks right now — grades, positions, and reasoning included.
+          </p>
+          <p className="text-text-dim text-sm mb-8 max-w-md mx-auto">
+            Then come back and see how they actually performed. We keep the full record public. No cherry-picking, no hiding the losses.
+          </p>
+
+          {leadStatus === "success" ? (
+            <div className="inline-flex items-center gap-3 px-6 py-4 rounded-2xl border border-green-bright/30 bg-green-dim">
+              <CheckCircle size={20} className="text-green-bright shrink-0" />
+              <div className="text-left">
+                <p className="text-white font-semibold text-sm">Picks sent — check your inbox.</p>
+                <p className="text-text-dim text-xs mt-0.5">
+                  Come back to{" "}
+                  <Link href="/record" className="text-green-bright hover:underline">
+                    see how they performed
+                  </Link>.
+                </p>
+              </div>
+            </div>
+          ) : (
+            <form onSubmit={submitLeadEmail} className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto">
+              <input
+                type="email"
+                required
+                placeholder="your@email.com"
+                value={leadEmail}
+                onChange={(e) => setLeadEmail(e.target.value)}
+                className="flex-1 px-4 py-3 rounded-xl bg-card border border-border-subtle text-white placeholder-text-dim text-sm focus:outline-none focus:border-green-bright/50 transition-colors"
+              />
+              <button
+                type="submit"
+                disabled={leadStatus === "loading"}
+                className="flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-green-bright text-[#070d1a] font-bold text-sm hover:brightness-110 transition-all disabled:opacity-60 whitespace-nowrap"
+              >
+                {leadStatus === "loading" ? (
+                  <span className="w-4 h-4 border-2 border-[#070d1a]/30 border-t-[#070d1a] rounded-full animate-spin" />
+                ) : (
+                  <Zap size={14} />
+                )}
+                {leadStatus === "loading" ? "Sending..." : "Send Me the Picks"}
+              </button>
+            </form>
+          )}
+
+          {leadStatus === "error" && (
+            <p className="text-red-400 text-xs mt-3">Something went wrong — try again in a moment.</p>
+          )}
+
+          <p className="text-text-dim text-xs mt-4">
+            We&apos;ll also add you to our weekly picks list. Unsubscribe any time.
+          </p>
+        </div>
+      </section>
+
       {/* Features */}
       <section id="features" className="py-20 px-4 bg-green-glow">
         <div className="max-w-5xl mx-auto">
@@ -545,6 +640,64 @@ export default function LandingPage() {
           </div>
         </div>
       </section>
+
+      {/* Track record */}
+      {winRecord && (
+        <section className="py-20 px-4 border-t border-border-subtle">
+          <div className="max-w-4xl mx-auto">
+            <SectionLabel>Our Track Record</SectionLabel>
+            <h2 className="text-3xl md:text-4xl font-bold text-center mb-3">
+              We&apos;re not going to win every bet.<br className="hidden md:block" /> Neither will you. That&apos;s not the point.
+            </h2>
+            <p className="text-text-dim text-center mb-3 max-w-2xl mx-auto">
+              Prediction markets are hard. Anyone telling you otherwise is full of it. What we
+              can do is put better information in your hands before you click buy — and be
+              straight with you about when we&apos;re right and when we&apos;re not.
+            </p>
+            <p className="text-text-dim text-center mb-10 max-w-2xl mx-auto">
+              Every pick we call is logged publicly. Every outcome is verified by the market itself —
+              not by us. We keep score because we&apos;re on your team, and teammates don&apos;t hide the stats.
+            </p>
+
+            <div className="rounded-2xl border border-green-bright/25 bg-green-dim overflow-hidden">
+              {/* Stats row */}
+              <div className="grid grid-cols-3 divide-x divide-green-bright/10 p-8">
+                <div className="text-center px-4">
+                  <p className="text-text-dim text-xs uppercase tracking-widest mb-2">Wins</p>
+                  <p className="text-5xl font-black text-green-bright">{winRecord.wins}</p>
+                </div>
+                <div className="text-center px-4">
+                  <p className="text-text-dim text-xs uppercase tracking-widest mb-2">Losses</p>
+                  <p className="text-5xl font-black text-red-400">{winRecord.losses}</p>
+                </div>
+                <div className="text-center px-4">
+                  <p className="text-text-dim text-xs uppercase tracking-widest mb-2">Win Rate</p>
+                  <p className="text-5xl font-black text-white">
+                    {winRecord.winRate !== null ? `${winRecord.winRate}%` : "—"}
+                  </p>
+                </div>
+              </div>
+
+              {/* Footer row */}
+              <div className="border-t border-green-bright/10 px-8 py-4 flex flex-col sm:flex-row items-center justify-between gap-4 bg-black/20">
+                <div className="flex items-center gap-2 text-sm text-text-dim">
+                  <Trophy size={14} className="text-green-bright shrink-0" />
+                  <span>
+                    <span className="text-white font-semibold">{winRecord.total} called picks</span>
+                    {" "}· We win when you win — so we keep it honest
+                  </span>
+                </div>
+                <Link
+                  href="/record"
+                  className="flex items-center gap-1.5 text-sm font-semibold text-green-bright hover:brightness-110 transition-all whitespace-nowrap"
+                >
+                  See every call, wins and losses <ExternalLink size={13} />
+                </Link>
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* Trust signals */}
       <section className="py-16 px-4 border-t border-border-subtle">
@@ -742,6 +895,7 @@ export default function LandingPage() {
           </p>
           <div className="flex items-center gap-6 text-xs text-text-dim">
             <Link href="/blog" className="hover:text-white transition-colors">Blog</Link>
+            <Link href="/record" className="hover:text-white transition-colors">Track Record</Link>
             <Link href="/terms" className="hover:text-white transition-colors">Terms</Link>
             <Link href="/privacy" className="hover:text-white transition-colors">Privacy</Link>
             <span>© 2026 FadeMe</span>

@@ -15,6 +15,18 @@
     {
       "path": "/api/cron/resolve-analyses",
       "schedule": "0 13 * * *"
+    },
+    {
+      "path": "/api/cron/resolve-picks",
+      "schedule": "0 16 * * *"
+    },
+    {
+      "path": "/api/cron/nurture-leads",
+      "schedule": "0 17 * * *"
+    },
+    {
+      "path": "/api/cron/nurture-free-users",
+      "schedule": "0 17 * * *"
     }
   ]
 }

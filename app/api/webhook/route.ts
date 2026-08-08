@@ -1,7 +1,28 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
+import { Resend } from "resend";
+import { clerkClient } from "@clerk/nextjs/server";
 import { getStripe } from "@/lib/stripe";
 import { getSupabase } from "@/lib/supabase";
+
+const resend = new Resend(process.env.RESEND_API_KEY);
+
+async function syncResendContact(userId: string, userType: "subscriber" | "churned") {
+  try {
+    const clerk = await clerkClient();
+    const user = await clerk.users.getUser(userId);
+    const email = user.emailAddresses.find((e) => e.id === user.primaryEmailAddressId)?.emailAddress;
+    if (!email) return;
+    await resend.contacts.create({
+      email: email.toLowerCase(),
+      firstName: user.firstName ?? undefined,
+      unsubscribed: false,
+      properties: { user_type: userType },
+    });
+  } catch {
+    // Non-fatal
+  }
+}
 
 export async function POST(req: NextRequest) {
   const body = await req.text();
@@ -37,6 +58,10 @@ export async function POST(req: NextRequest) {
           updated_at: new Date().toISOString(),
         });
         if (upsertErr) throw new Error(`Subscription upsert failed: ${upsertErr.message}`);
+
+        if (sub.status === "active" || sub.status === "trialing") {
+          await syncResendContact(userId, "subscriber");
+        }
         break;
       }
 
@@ -50,6 +75,8 @@ export async function POST(req: NextRequest) {
           .update({ status: "canceled", updated_at: new Date().toISOString() })
           .eq("user_id", userId);
         if (cancelErr) throw new Error(`Subscription cancel failed: ${cancelErr.message}`);
+
+        await syncResendContact(userId, "churned");
         break;
       }
 

@@ -64,9 +64,9 @@ export default async function BlogPage() {
             <p className="text-text-dim text-lg">No posts yet — check back soon.</p>
           </div>
         ) : (
-          <div className="grid md:grid-cols-2 gap-6">
-            {posts.map((post, i) => (
-              <PostCard key={post._id} post={post} featured={i === 0} />
+          <div className="flex flex-col gap-6">
+            {posts.map((post) => (
+              <PostCard key={post._id} post={post} />
             ))}
           </div>
         )}
@@ -86,16 +86,16 @@ export default async function BlogPage() {
   );
 }
 
-function PostCard({ post, featured }: { post: Post; featured: boolean }) {
+function PostCard({ post }: { post: Post }) {
   return (
     <Link
       href={`/blog/${post.slug.current}`}
-      className={`group rounded-2xl border border-border-subtle bg-card overflow-hidden hover:border-green-bright/30 transition-all ${featured ? "md:col-span-2" : ""}`}
+      className="group rounded-2xl border border-border-subtle bg-card overflow-hidden hover:border-green-bright/30 transition-all"
     >
       {post.mainImage && (
-        <div className={`w-full bg-white/5 overflow-hidden ${featured ? "h-56" : "h-40"}`}>
+        <div className="w-full h-48 bg-white/5 overflow-hidden">
           <img
-            src={urlFor(post.mainImage).width(800).height(featured ? 400 : 280).url()}
+            src={urlFor(post.mainImage).width(1000).height(320).url()}
             alt={post.title}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
           />
@@ -115,7 +115,7 @@ function PostCard({ post, featured }: { post: Post; featured: boolean }) {
             </span>
           )}
         </div>
-        <h2 className={`font-bold text-white mb-2 group-hover:text-green-bright transition-colors ${featured ? "text-2xl" : "text-lg"}`}>
+        <h2 className="text-xl font-bold text-white mb-2 group-hover:text-green-bright transition-colors">
           {post.title}
         </h2>
         <p className="text-text-dim text-sm leading-relaxed mb-4 line-clamp-2">{post.excerpt}</p>
