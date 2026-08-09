@@ -227,7 +227,7 @@ export default function LandingPage() {
       {/* Trusted by / markets ticker */}
       <section className="py-10 border-y border-border-subtle overflow-hidden">
         <p className="text-center text-text-dim text-xs mb-6 uppercase tracking-widest font-medium px-4">
-          Works with every prediction market platform
+          Works with every prediction market &amp; sports betting platform
         </p>
         {/* Fade masks on left and right */}
         <div
@@ -523,7 +523,7 @@ export default function LandingPage() {
           )}
 
           <p className="text-text-dim text-xs mt-4">
-            We&apos;ll also add you to our weekly picks list. Unsubscribe any time.
+            We&apos;ll also add you to our weekly picks list. Unsubscribe any time — no hard feelings if you&apos;d rather keep betting on vibes.
           </p>
         </div>
       </section>
@@ -881,6 +881,9 @@ export default function LandingPage() {
             Analyze Your Bet Now
             <ArrowRight size={20} />
           </Link>
+          <p className="text-text-dim text-xs mt-6 max-w-md mx-auto">
+            FadeMe sharpens your decisions — it doesn&apos;t make them for you. You can lose 100% of your money in prediction markets. Never bet more than you can afford to lose.
+          </p>
         </div>
       </section>
 
@@ -890,8 +893,8 @@ export default function LandingPage() {
           <span className="text-white font-bold">
             Fade<span className="text-green-bright">Me</span>
           </span>
-          <p className="text-text-dim text-xs text-center">
-            For informational purposes only. Not financial advice. Prediction markets involve risk.
+          <p className="text-text-dim text-xs text-center max-w-sm">
+            For informational purposes only. Not financial advice. You can lose 100% of your money in prediction markets — FadeMe helps you think, not guarantees you win.
           </p>
           <div className="flex items-center gap-6 text-xs text-text-dim">
             <Link href="/blog" className="hover:text-white transition-colors">Blog</Link>
@@ -1024,6 +1027,7 @@ function StepCard({ number, title, description, icon: Icon }: {
 const MARKETS = [
   { name: "Kalshi",     logo: "/logos/kalshi.png" },
   { name: "Polymarket", logo: "/logos/polymarket.png" },
+  { name: "FanDuel",    logo: "/logos/fanduel.png" },
   { name: "PredictIt",  logo: "/logos/predictit.png" },
   { name: "Manifold",   logo: "/logos/manifold.png" },
   { name: "Metaculus",  logo: "/logos/metaculus.png" },
@@ -1161,7 +1165,7 @@ const FAQS = [
   },
   {
     question: "Which prediction market platforms does FadeMe support?",
-    answer: "Any platform you can screenshot. Kalshi, Polymarket, PredictIt, Manifold, Metaculus, Augur, sports books, political markets — if your screen shows odds or a probability, we can read it. No API integrations or account connections required.",
+    answer: "Any platform you can screenshot. Kalshi, Polymarket, PredictIt, FanDuel, Manifold, Metaculus, Smarkets, Betfair, and more — if your screen shows odds or a probability, we can read it. No API integrations or account connections required.",
   },
   {
     question: "What does BUY, HOLD, or FADE actually mean?",
@@ -1169,7 +1173,7 @@ const FAQS = [
   },
   {
     question: "How accurate is the analysis?",
-    answer: "FadeMe is a decision-support tool, not a crystal ball. It uses one of the most advanced AI models available combined with live data to surface your edge and your risk — but prediction markets are inherently uncertain. You get a sharper framework for making decisions, not guarantees. Always size your positions appropriately and never bet more than you can afford to lose.",
+    answer: "FadeMe is a decision-support tool, not a crystal ball. It uses one of the most advanced AI models available combined with live data to surface your edge and your risk — but prediction markets are inherently uncertain. You can lose 100% of your money on any bet, full stop. You get a sharper framework for making decisions, not guarantees. Always size your positions appropriately and never put in money you can't afford to walk away from.",
   },
   {
     question: "Does FadeMe work for sports prediction markets?",
@@ -1185,7 +1189,7 @@ const FAQS = [
   },
   {
     question: "How do I cancel my subscription?",
-    answer: "Hit the 'Manage Plan' button inside the app at any time. You'll be taken to your Stripe billing portal where you can cancel with one click. No emails, no chat required. If you cancel, you keep access through the end of your billing period.",
+    answer: "Hit the 'Manage Plan' button inside the app at any time. You'll be taken to your Stripe billing portal where you can cancel with one click. No emails, no chat, no guilt trip. If you cancel, you keep access through the end of your billing period — we'll just be out here rooting for you anyway.",
   },
   {
     question: "What's the $1 first week about?",

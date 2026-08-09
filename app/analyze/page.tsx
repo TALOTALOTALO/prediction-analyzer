@@ -17,12 +17,12 @@ import {
   Zap,
   X,
   CheckCircle,
-  Lock,
   Settings,
   Sparkles,
   LogIn,
   LogOut,
   Clock,
+  Link2,
 } from "lucide-react";
 
 interface DetectedBet {
@@ -118,6 +118,8 @@ function AnalyzePageInner() {
     created_at: string; platform: string; outcome: "correct" | "incorrect" | null;
   }>>([]);
 
+  const [inputMode, setInputMode] = useState<"screenshot" | "url">("screenshot");
+  const [marketUrl, setMarketUrl] = useState("");
   const [dragActive, setDragActive] = useState(false);
   const [preview, setPreview] = useState<string | null>(null);
   const [imageData, setImageData] = useState<{ base64: string; mimeType: string } | null>(null);
@@ -242,7 +244,34 @@ function AnalyzePageInner() {
     setImageData(null);
     setResult(null);
     setError(null);
+    setMarketUrl("");
     if (inputRef.current) inputRef.current.value = "";
+  };
+
+  const analyzeUrl = async () => {
+    if (!marketUrl.trim()) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/analyze-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: marketUrl.trim() }),
+      });
+      const data = await res.json();
+      if (res.status === 403 && data.upgradeRequired) {
+        setSubStatus("upgradeRequired");
+        setError("You've used your free analysis. Subscribe below to keep going.");
+        return;
+      }
+      if (!res.ok) throw new Error(data.error || "Analysis failed");
+      setResult(data);
+      setSubStatus((prev) => (prev === "free" ? "upgradeRequired" : prev));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong. Try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const analyze = async () => {
@@ -389,7 +418,10 @@ function AnalyzePageInner() {
             <div className="text-center mb-8">
               <h1 className="text-3xl font-bold mb-2">Analyze Your Bet</h1>
               <p className="text-text-dim">
-                Upload a screenshot from any prediction market — we&apos;ll grade it instantly.
+                Upload a screenshot from any prediction market and we&apos;ll grade it instantly.
+              </p>
+              <p className="text-text-dim text-xs mt-1">
+                You can also paste a Kalshi or Polymarket URL directly using the tab below.
               </p>
             </div>
 
@@ -398,47 +430,113 @@ function AnalyzePageInner() {
               <div className="mb-6 p-4 rounded-xl bg-[#00dc82]/10 border border-[#00dc82]/25 flex items-center gap-3">
                 <Zap size={16} className="text-green-bright shrink-0" />
                 <p className="text-green-bright text-sm font-medium">
-                  1 free analysis included — no credit card required
+                  1 free analysis on us — no credit card, no commitment, no pressure
                 </p>
               </div>
             )}
 
-            {!preview ? (
-              <div
-                className={`relative border-2 border-dashed rounded-2xl p-12 text-center transition-all cursor-pointer ${
-                  dragActive
-                    ? "border-green-bright bg-green-dim"
-                    : "border-border-subtle hover:border-green-bright/40 hover:bg-card"
-                }`}
-                onDragOver={(e) => { e.preventDefault(); setDragActive(true); }}
-                onDragLeave={() => setDragActive(false)}
-                onDrop={handleDrop}
-                onClick={() => inputRef.current?.click()}
-              >
-                <input ref={inputRef} type="file" className="hidden" accept="image/*" onChange={handleFileChange} />
-                <div className="flex flex-col items-center gap-4">
-                  <div className="w-16 h-16 rounded-2xl bg-green-dim border border-green-bright/20 flex items-center justify-center">
-                    <Upload className="text-green-bright" size={28} />
-                  </div>
-                  <div>
-                    <p className="text-white font-semibold mb-1">Drop your screenshot here</p>
-                    <p className="text-text-dim text-sm">
-                      or <span className="text-green-bright">browse files</span> · PNG, JPG, WEBP up to 10MB
-                    </p>
-                  </div>
-                  <p className="text-xs text-text-dim">Works with Kalshi, Polymarket, PredictIt, and any other platform</p>
-                </div>
+            {/* Input mode tabs */}
+            {!result && (
+              <div className="flex gap-1 p-1 rounded-xl bg-white/5 border border-border-subtle mb-5 w-fit">
+                <button
+                  onClick={() => { setInputMode("screenshot"); setError(null); setMarketUrl(""); }}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                    inputMode === "screenshot"
+                      ? "bg-white/10 text-white"
+                      : "text-text-dim hover:text-white"
+                  }`}
+                >
+                  <Upload size={14} />
+                  Screenshot
+                </button>
+                <button
+                  onClick={() => { setInputMode("url"); setError(null); clearImage(); }}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                    inputMode === "url"
+                      ? "bg-white/10 text-white"
+                      : "text-text-dim hover:text-white"
+                  }`}
+                >
+                  <Link2 size={14} />
+                  Paste URL
+                </button>
               </div>
-            ) : (
-              <div className="space-y-4">
-                <div className="relative rounded-2xl overflow-hidden border border-border-subtle bg-card">
-                  <button onClick={clearImage} className="absolute top-3 right-3 z-10 w-8 h-8 rounded-full bg-black/60 flex items-center justify-center hover:bg-black/80 transition-colors">
-                    <X size={14} className="text-white" />
-                  </button>
-                  <img src={preview} alt="Bet screenshot" className="w-full max-h-80 object-contain" />
-                </div>
+            )}
 
-                {!result && (
+            {/* URL input mode */}
+            {inputMode === "url" && !result && (
+              <div className="space-y-3">
+                <div className="rounded-2xl border border-border-subtle bg-card p-5">
+                  <p className="text-xs text-text-dim mb-3">
+                    Paste a <span className="text-white">Kalshi</span> or <span className="text-white">Polymarket</span> market URL — we pull live data directly from their APIs.
+                  </p>
+                  <input
+                    type="url"
+                    value={marketUrl}
+                    onChange={(e) => setMarketUrl(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter" && marketUrl.trim() && !loading) analyzeUrl(); }}
+                    placeholder="https://kalshi.com/markets/KXBTC-25DEC31-B50000"
+                    disabled={loading}
+                    className="w-full bg-white/5 border border-border-subtle rounded-xl px-4 py-3 text-sm text-white placeholder:text-text-dim focus:outline-none focus:border-[#00dc82]/50 transition-colors disabled:opacity-50"
+                  />
+                  <p className="text-xs text-text-dim mt-2">
+                    e.g. kalshi.com/markets/TICKER or polymarket.com/event/.../market-slug
+                  </p>
+                </div>
+                <button
+                  onClick={analyzeUrl}
+                  disabled={loading || !marketUrl.trim()}
+                  className="w-full py-4 rounded-xl bg-green-bright text-[#070d1a] font-bold text-base hover:brightness-110 transition-all disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  {loading ? (
+                    <>
+                      <span className="inline-block w-4 h-4 border-2 border-[#070d1a]/30 border-t-[#070d1a] rounded-full animate-spin" />
+                      Analyzing...
+                    </>
+                  ) : (
+                    <><Zap size={18} /> Analyze Market</>
+                  )}
+                </button>
+              </div>
+            )}
+
+            {/* Screenshot upload mode */}
+            {inputMode === "screenshot" && !result && (
+              !preview ? (
+                <div
+                  className={`relative border-2 border-dashed rounded-2xl p-12 text-center transition-all cursor-pointer ${
+                    dragActive
+                      ? "border-green-bright bg-green-dim"
+                      : "border-border-subtle hover:border-green-bright/40 hover:bg-card"
+                  }`}
+                  onDragOver={(e) => { e.preventDefault(); setDragActive(true); }}
+                  onDragLeave={() => setDragActive(false)}
+                  onDrop={handleDrop}
+                  onClick={() => inputRef.current?.click()}
+                >
+                  <input ref={inputRef} type="file" className="hidden" accept="image/*" onChange={handleFileChange} />
+                  <div className="flex flex-col items-center gap-4">
+                    <div className="w-16 h-16 rounded-2xl bg-green-dim border border-green-bright/20 flex items-center justify-center">
+                      <Upload className="text-green-bright" size={28} />
+                    </div>
+                    <div>
+                      <p className="text-white font-semibold mb-1">Drop your screenshot here</p>
+                      <p className="text-text-dim text-sm">
+                        or <span className="text-green-bright">browse files</span> · PNG, JPG, WEBP up to 10MB
+                      </p>
+                    </div>
+                    <p className="text-xs text-text-dim">Works with Kalshi, Polymarket, FanDuel, PredictIt, and any other platform</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="relative rounded-2xl overflow-hidden border border-border-subtle bg-card">
+                    <button onClick={clearImage} className="absolute top-3 right-3 z-10 w-8 h-8 rounded-full bg-black/60 flex items-center justify-center hover:bg-black/80 transition-colors">
+                      <X size={14} className="text-white" />
+                    </button>
+                    <img src={preview} alt="Bet screenshot" className="w-full max-h-80 object-contain" />
+                  </div>
+
                   <button
                     onClick={analyze}
                     disabled={loading}
@@ -453,8 +551,8 @@ function AnalyzePageInner() {
                       <><Zap size={18} /> Analyze Bet</>
                     )}
                   </button>
-                )}
-              </div>
+                </div>
+              )
             )}
 
             {error && (
@@ -471,7 +569,7 @@ function AnalyzePageInner() {
                   <div>
                     <p className="text-white font-semibold mb-0.5">Go unlimited with FadeMe Pro</p>
                     <p className="text-text-dim text-sm">
-                      <span className="text-white font-bold">$1</span> first week, then $19.99/month — cancel anytime
+                      <span className="text-white font-bold">$1</span> first week, then $19.99/month — cancel anytime, no hard feelings
                     </p>
                   </div>
                   <button
@@ -642,6 +740,10 @@ function AnalyzePageInner() {
                     </button>
                   )}
                 </div>
+
+                <p className="text-text-dim text-xs leading-relaxed border-t border-border-subtle pt-4">
+                  <span className="text-white font-semibold">Important:</span> This analysis is for informational purposes only and is not financial advice. You can lose 100% of your money in prediction markets. FadeMe helps you make more informed decisions — it does not guarantee any outcome. Never bet money you can&apos;t afford to lose.
+                </p>
               </div>
             )}
 
@@ -752,10 +854,11 @@ function ProbBar({ label, value, color }: { label: string; value: number; color:
 }
 
 function DetailRow({ label, value }: { label: string; value: string }) {
+  const display = !value || value === "unknown" ? "—" : value;
   return (
     <div>
       <p className="text-xs text-text-dim mb-0.5">{label}</p>
-      <p className="text-sm text-white font-medium">{value || "—"}</p>
+      <p className="text-sm text-white font-medium">{display}</p>
     </div>
   );
 }

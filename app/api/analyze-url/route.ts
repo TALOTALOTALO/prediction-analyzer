@@ -2,13 +2,9 @@ import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse, after } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { getSupabase } from "@/lib/supabase";
+import { createSign } from "crypto";
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-
-const ALLOWED_MIME_TYPES = ["image/jpeg", "image/png", "image/gif", "image/webp"] as const;
-type AllowedMimeType = (typeof ALLOWED_MIME_TYPES)[number];
-
-const MAX_BASE64_LENGTH = 13_500_000;
 
 const RATE_LIMIT = 20;
 
@@ -38,17 +34,126 @@ async function fetchNewsContext(query: string): Promise<string> {
     });
     if (!res.ok) return "";
     const data = await res.json();
-
     const snippets = (data.results ?? [])
-      .map((r: { title: string; content: string; url: string }) =>
-        `- ${r.title}: ${r.content.slice(0, 300)}`
-      )
+      .map((r: { title: string; content: string }) => `- ${r.title}: ${r.content.slice(0, 300)}`)
       .join("\n");
-
     const answer = data.answer ? `Summary: ${data.answer}\n\n` : "";
     return `${answer}Recent news and context:\n${snippets}`;
   } catch {
     return "";
+  }
+}
+
+function kalshiSign(privateKeyPem: string, timestampMs: number, method: string, path: string): string {
+  const msg = `${timestampMs}${method}${path}`;
+  const signer = createSign("RSA-SHA256");
+  signer.update(msg);
+  return signer.sign(privateKeyPem, "base64");
+}
+
+function parseMarketUrl(rawUrl: string): { platform: "Kalshi" | "Polymarket"; marketId: string } | null {
+  try {
+    const parsed = new URL(rawUrl);
+    const host = parsed.hostname.toLowerCase();
+    const segments = parsed.pathname.split("/").filter(Boolean);
+
+    if (host.includes("kalshi.com") && segments[0] === "markets" && segments[1]) {
+      return { platform: "Kalshi", marketId: segments[1].toUpperCase() };
+    }
+
+    if (host.includes("polymarket.com") && segments.length >= 1) {
+      // /event/{event-slug}/{market-slug} or /market/{condition-id}
+      const lastSegment = segments[segments.length - 1];
+      if (lastSegment) return { platform: "Polymarket", marketId: lastSegment };
+    }
+
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+interface MarketData {
+  event: string;
+  position: string;
+  odds: string;
+  impliedProbability: number;
+  expirationDate: string;
+  category: string;
+  marketId: string;
+  platform: string;
+  rawText: string;
+}
+
+async function fetchKalshiMarket(ticker: string): Promise<MarketData | null> {
+  try {
+    const keyId = process.env.KALSHI_API_KEY_ID;
+    const privateKeyRaw = process.env.KALSHI_PRIVATE_KEY;
+    const path = `/trade-api/v2/markets/${ticker}`;
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+
+    if (keyId && privateKeyRaw) {
+      const privateKey = privateKeyRaw.replace(/\\n/g, "\n");
+      const ts = Date.now();
+      headers["KALSHI-ACCESS-KEY"] = keyId;
+      headers["KALSHI-ACCESS-TIMESTAMP"] = String(ts);
+      headers["KALSHI-ACCESS-SIGNATURE"] = kalshiSign(privateKey, ts, "GET", path);
+    }
+
+    const res = await fetch(`https://api.elections.kalshi.com${path}`, { headers });
+    if (!res.ok) return null;
+    const data = await res.json();
+    const m = data.market;
+    if (!m) return null;
+
+    const lastPrice: number = m.last_price ?? m.yes_bid ?? 50;
+    const impliedProbability = lastPrice; // Kalshi prices are in cents = direct probability %
+
+    return {
+      platform: "Kalshi",
+      event: m.title ?? ticker,
+      position: "YES",
+      odds: `${lastPrice}¢`,
+      impliedProbability,
+      expirationDate: m.close_time ? new Date(m.close_time).toLocaleDateString("en-US") : "unknown",
+      category: m.category ?? "Other",
+      marketId: ticker,
+      rawText: `Ticker: ${ticker}. Status: ${m.status ?? "unknown"}. Yes bid: ${m.yes_bid ?? "?"}¢, Yes ask: ${m.yes_ask ?? "?"}¢.`,
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function fetchPolymarketMarket(slug: string): Promise<MarketData | null> {
+  try {
+    const res = await fetch(`https://gamma-api.polymarket.com/markets?slug=${encodeURIComponent(slug)}`);
+    if (!res.ok) return null;
+    const data: Record<string, unknown>[] = await res.json();
+    const m = data?.[0];
+    if (!m) return null;
+
+    let yesPrice = 0.5;
+    try {
+      const prices = JSON.parse((m.outcomePrices as string) ?? '["0.5","0.5"]');
+      yesPrice = parseFloat(prices[0] ?? "0.5");
+    } catch { /* keep default */ }
+
+    const impliedProbability = Math.round(yesPrice * 100);
+
+    return {
+      platform: "Polymarket",
+      event: (m.question as string) ?? slug,
+      position: "YES",
+      odds: `${impliedProbability}%`,
+      impliedProbability,
+      expirationDate: m.endDate ? new Date(m.endDate as string).toLocaleDateString("en-US") : "unknown",
+      category: "Other",
+      marketId: (m.conditionId as string) ?? slug,
+      rawText: `Volume: $${m.volume ?? "?"}. Liquidity: $${m.liquidity ?? "?"}. Active: ${m.active ?? "?"}.`,
+    };
+  } catch {
+    return null;
   }
 }
 
@@ -74,185 +179,85 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (dbError && dbError.code !== "PGRST116") {
-      console.error("Supabase subscription check error:", dbError);
       return NextResponse.json({ error: "Service temporarily unavailable" }, { status: 503 });
     }
     isActive = sub?.status === "active" || sub?.status === "trialing";
-  } catch (err) {
-    console.error("Supabase connection error:", err);
+  } catch {
     return NextResponse.json({ error: "Service temporarily unavailable" }, { status: 503 });
   }
 
   if (!isActive) {
-    // Atomically claim the free analysis slot — unique constraint on user_id prevents races
     const { error: claimErr } = await getSupabase()
       .from("free_analysis_claims")
       .insert({ user_id: userId });
 
     if (claimErr) {
       if (claimErr.code === "23505") {
-        // Unique violation — free analysis already used
         return NextResponse.json({ error: "Subscribe to analyze more bets", upgradeRequired: true }, { status: 403 });
       }
-      // Table may not exist yet — fall back to count check
       const { count, error: countErr } = await getSupabase()
         .from("analyses")
         .select("*", { count: "exact", head: true })
         .eq("user_id", userId);
 
       if (countErr) {
-        console.error("Free analysis count check failed:", countErr);
         return NextResponse.json({ error: "Service temporarily unavailable" }, { status: 503 });
       }
-
       if ((count ?? 0) >= 1) {
         return NextResponse.json({ error: "Subscribe to analyze more bets", upgradeRequired: true }, { status: 403 });
       }
     }
-    // Claim succeeded → fall through and allow the free analysis
   }
 
   try {
     const body = await req.json();
-    const { image, mimeType } = body as { image: string; mimeType: string };
+    const { url } = body as { url: string };
 
-    if (!image || !mimeType) {
-      return NextResponse.json({ error: "Missing image or mimeType" }, { status: 400 });
-    }
-    if (!ALLOWED_MIME_TYPES.includes(mimeType as AllowedMimeType)) {
-      return NextResponse.json({ error: "Invalid image type" }, { status: 400 });
-    }
-    if (image.length > MAX_BASE64_LENGTH) {
-      return NextResponse.json({ error: "Image too large. Maximum size is 10MB." }, { status: 400 });
+    if (!url || typeof url !== "string") {
+      return NextResponse.json({ error: "Missing url" }, { status: 400 });
     }
 
-    // Call 1: Vision parse — extract structured bet details from screenshot
-    const parseResponse = await client.messages.create({
-      model: "claude-opus-4-7",
-      max_tokens: 1024,
-      messages: [
-        {
-          role: "user",
-          content: [
-            {
-              type: "image",
-              source: { type: "base64", media_type: mimeType as AllowedMimeType, data: image },
-            },
-            {
-              type: "text",
-              text: `Analyze this prediction market screenshot and extract all bet details.
-
-PLATFORM IDENTIFICATION GUIDE — use these visual fingerprints to identify the platform:
-
-Kalshi:
-- Dark navy/charcoal background (#0a0e1a or similar)
-- Binary contracts: priced in cents or % (e.g. "72¢" or "72%"), YES/NO outcomes
-- Ticker symbols in the format KXBTC-25DEC, PRES-2024, INX-25, etc.
-- "Kalshi" wordmark or kalshi.com URL visible
-- Green accent color for YES, red for NO
-- Markets labeled "Event Contracts" or "Prediction Markets"
-- Contract expiry shown as a date (e.g. "Expires Dec 31")
-- Sports/multi-outcome markets: team or outcome names listed vertically, each with a multiplier (e.g. "2.01x", "3.80x") and a percentage in a green circle badge
-- Volume shown as "$X,XXX vol" at the bottom
-- "Spread and Total · N markets" label visible for sports markets
-- League or event branding at the top (e.g. CPL logo, NFL shield)
-- Colored horizontal underlines beneath team names (green, blue, orange)
-- No "Kalshi" text may be visible if the screenshot is cropped — identify by the dark background + multiplier + percentage circle combination
-
-Polymarket:
-- Dark background with blue/purple accent colors
-- Prices shown as percentages or decimals (e.g. "72%" or "0.72 USDC")
-- USDC as the currency — "USDC", "$USDC", or crypto wallet references
-- "Polymarket" wordmark or polymarket.com URL
-- Outcome shares shown with Buy/Sell buttons
-- Markets often show liquidity, volume in USDC
-- Condition IDs visible in URL (long hex string)
-
-PredictIt:
-- White or light background (notable contrast vs dark platforms)
-- Share-based pricing (e.g. "72¢ per share", "Yes shares", "No shares")
-- "PredictIt" wordmark or predictit.org URL
-- $850 max investment limit often referenced
-- Political markets dominant (elections, legislation)
-- "Buy Yes" / "Buy No" button labels
-
-Manifold:
-- Light or white background with colorful UI
-- Uses "mana" (M$) as currency — M$, mana tokens
-- "Manifold" wordmark or manifold.markets URL
-- Social/community features visible (comments, likes)
-- Creator name shown prominently
-- Probability shown as a large percentage
-
-Metaculus:
-- Clean light background, academic/research aesthetic
-- Questions worded precisely with resolution criteria
-- Crowd forecast shown as a percentage
-- "Metaculus" wordmark or metaculus.com URL
-- No direct betting — forecasting/prediction platform
-- Shows community prediction vs your prediction
-
-Smarkets:
-- "Smarkets" wordmark or smarkets.com URL
-- Exchange-style odds (decimal or fractional)
-- Back/Lay betting (exchange format)
-- Sports and politics markets
-
-Betfair:
-- "Betfair" wordmark or betfair.com URL
-- Blue and yellow brand colors
-- Back/Lay exchange format
-- Decimal odds (e.g. 1.72, 3.50)
-- Sports markets dominant
-
-FanDuel:
-- "FanDuel" wordmark or fanduel.com URL
-- Navy blue and green brand colors
-- American moneyline odds (e.g. -110, +150)
-- Spread, total, and moneyline bet types
-- "Same Game Parlay" feature visible
-- Sports betting dominant (NFL, NBA, MLB, NHL, etc.)
-
-If you see a platform not listed above, use the wordmark, URL, or distinctive UI elements to identify it. If the platform cannot be determined, use "unknown".
-
-Now extract all bet details and return ONLY a JSON object with this exact structure (no markdown, no explanation):
-{
-  "platform": "string (Kalshi, Polymarket, PredictIt, Manifold, Metaculus, Smarkets, Betfair, FanDuel, or unknown)",
-  "event": "string (what is being predicted)",
-  "position": "string (YES or NO, or the specific option chosen)",
-  "odds": "string (e.g. 72¢, 72%, +145, -110, 1.72)",
-  "impliedProbability": number (0-100, the market's implied probability as a percentage),
-  "stake": "string (amount being risked, or 'unknown')",
-  "potentialPayout": "string (potential return, or 'unknown')",
-  "expirationDate": "string (when the bet resolves, or 'unknown')",
-  "category": "string (e.g. Politics, Sports, Finance, Economics, Entertainment, Crypto, Other)",
-  "rawText": "string (any other relevant text visible in the screenshot)",
-  "marketId": "string or null (Kalshi ticker e.g. KXBTC-24DEC, or Polymarket condition ID if visible in the URL or page — null if not visible)"
-}`,
-            },
-          ],
-        },
-      ],
-    });
-
-    const parseText = parseResponse.content
-      .filter((b) => b.type === "text")
-      .map((b) => (b.type === "text" ? b.text : ""))
-      .join("");
-    let detected: Record<string, unknown>;
-    try {
-      detected = JSON.parse(parseText.replace(/```json\n?|\n?```/g, "").trim());
-    } catch {
-      return NextResponse.json({ error: "Failed to parse bet details from image" }, { status: 422 });
+    const parsed = parseMarketUrl(url.trim());
+    if (!parsed) {
+      return NextResponse.json(
+        { error: "Unsupported URL. Paste a Kalshi (kalshi.com/markets/...) or Polymarket (polymarket.com/event/...) link." },
+        { status: 400 }
+      );
     }
 
-    // Fetch live news context for the event — runs in parallel with nothing, ~500ms
-    const newsContext = await fetchNewsContext(detected.event as string);
+    let marketData: MarketData | null = null;
+    if (parsed.platform === "Kalshi") {
+      marketData = await fetchKalshiMarket(parsed.marketId);
+    } else {
+      marketData = await fetchPolymarketMarket(parsed.marketId);
+    }
 
-    // Call 2: Analysis — grade the bet using detected details + live news context
+    if (!marketData) {
+      return NextResponse.json(
+        { error: "Could not fetch market data. Make sure the URL points to a valid, active market." },
+        { status: 422 }
+      );
+    }
+
+    const newsContext = await fetchNewsContext(marketData.event);
+
+    const detected = {
+      platform: marketData.platform,
+      event: marketData.event,
+      position: marketData.position,
+      odds: marketData.odds,
+      impliedProbability: marketData.impliedProbability,
+      stake: "unknown",
+      potentialPayout: "unknown",
+      expirationDate: marketData.expirationDate,
+      category: marketData.category,
+      rawText: marketData.rawText,
+      marketId: marketData.marketId,
+    };
+
     const analysisPrompt = `You are an expert prediction market analyst with access to real-time information. Analyze this bet and return a detailed assessment.
 
-Bet details extracted from screenshot:
+Bet details fetched directly from the ${marketData.platform} API:
 ${JSON.stringify(detected, null, 2)}
 
 ${newsContext ? `LIVE CONTEXT (use this to inform your probability estimate — this is current information as of today):\n${newsContext}\n` : ""}
@@ -298,6 +303,7 @@ Be rigorous and realistic. Most bets should grade C or lower.`;
       .filter((block) => block.type === "text")
       .map((block) => block.text ?? "")
       .join("");
+
     let analysis: Record<string, unknown>;
     try {
       analysis = JSON.parse(analysisText.replace(/```json\n?|\n?```/g, "").trim());
@@ -305,7 +311,6 @@ Be rigorous and realistic. Most bets should grade C or lower.`;
       return NextResponse.json({ error: "Failed to generate analysis" }, { status: 422 });
     }
 
-    // Persist to history after response is sent — after() keeps the lambda alive on Vercel
     after(async () => {
       const { error: dbErr } = await getSupabase().from("analyses").insert({
         user_id: userId,
@@ -333,14 +338,14 @@ Be rigorous and realistic. Most bets should grade C or lower.`;
         entry_strategy: analysis.entryStrategy,
         exit_strategy: analysis.exitStrategy,
         has_live_context: !!newsContext,
-        market_id: (detected.marketId as string) ?? null,
+        market_id: detected.marketId,
       });
-      if (dbErr) console.error("Failed to save analysis:", dbErr);
+      if (dbErr) console.error("Failed to save url analysis:", dbErr);
     });
 
     return NextResponse.json({ detected, analysis, hasLiveContext: !!newsContext });
   } catch (error) {
-    console.error("Analyze error:", error);
+    console.error("Analyze URL error:", error);
     return NextResponse.json({ error: "Analysis failed. Please try again." }, { status: 500 });
   }
 }
