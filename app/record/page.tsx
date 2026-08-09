@@ -40,9 +40,11 @@ interface WinRecord {
 
 function marketVerifyUrl(platform: string, marketId: string): string {
   if (platform === "Kalshi") return `https://kalshi.com/markets/${marketId}`;
-  // Polymarket public URLs use slugs, not the numeric Gamma API IDs we store.
-  // Link to the search page with the market ID as a reference instead.
-  if (platform === "Polymarket") return `https://polymarket.com/markets`;
+  if (platform === "Polymarket") {
+    // New picks store the slug directly; legacy picks stored condition IDs
+    const isSlug = /^[a-z0-9-]+$/.test(marketId) && !marketId.startsWith("0x");
+    return isSlug ? `https://polymarket.com/event/${marketId}` : `https://polymarket.com/markets`;
+  }
   if (platform === "PredictIt") return `https://www.predictit.org/markets/detail/${marketId}`;
   return "#";
 }

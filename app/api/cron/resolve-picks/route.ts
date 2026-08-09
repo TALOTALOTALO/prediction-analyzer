@@ -39,7 +39,10 @@ async function checkKalshiResult(ticker: string): Promise<"yes" | "no" | null> {
 
 async function checkPolymarketResult(marketId: string): Promise<"yes" | "no" | null> {
   try {
-    const res = await fetch(`https://gamma-api.polymarket.com/markets?id=${marketId}`);
+    // Market IDs may be slugs (new) or condition IDs / hex strings (legacy)
+    const isSlug = /^[a-z0-9-]+$/.test(marketId) && !marketId.startsWith("0x");
+    const query = isSlug ? `slug=${marketId}` : `id=${marketId}`;
+    const res = await fetch(`https://gamma-api.polymarket.com/markets?${query}`);
     if (!res.ok) return null;
     const data: Record<string, unknown>[] = await res.json();
     const market = data?.[0];
