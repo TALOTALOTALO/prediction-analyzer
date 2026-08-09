@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { UserButton } from "@clerk/nextjs";
+import MobileNav from "@/components/MobileNav";
 import {
   ArrowLeft,
   Send,
@@ -138,9 +139,10 @@ export default function CoachPage() {
 
   return (
     <div className="min-h-screen bg-bg flex flex-col">
+      <MobileNav activeTab="coach" />
       <CoachNav />
 
-      <div className="flex-1 flex flex-col max-w-3xl mx-auto w-full px-4 pb-4">
+      <div className="flex-1 flex flex-col max-w-3xl mx-auto w-full px-4 pb-20 sm:pb-4">
         {/* Empty state */}
         {isEmpty && (
           <div className="flex-1 flex flex-col items-center justify-center py-12">

@@ -20,8 +20,11 @@ import {
   Trophy,
   BarChart2,
   X,
+  ExternalLink,
+  SlidersHorizontal,
 } from "lucide-react";
 import { UserButton, SignUpButton, useUser } from "@clerk/nextjs";
+import MobileNav from "@/components/MobileNav";
 
 const STAKE_OPTIONS = [10, 25, 50, 100];
 
@@ -56,6 +59,21 @@ interface WinRecord {
   voids: number;
   winRate: number | null;
   total: number;
+}
+
+function getMarketUrl(platform: string, marketId: string | null): string | null {
+  if (!marketId) return null;
+  if (platform === "Kalshi") {
+    // Ticker format: KXSERIES-DATE... or KXSERIES-DATE...-OUTCOME
+    // Link to the series page (e.g. kalshi.com/markets/kxeculpgame)
+    const series = marketId.split("-")[0].toLowerCase();
+    return series ? `https://kalshi.com/markets/${series}` : null;
+  }
+  if (platform === "Polymarket") {
+    // marketId is stored as the market slug
+    return `https://polymarket.com/event/${marketId}`;
+  }
+  return null;
 }
 
 const GRADE_CONFIG: Record<string, { border: string; text: string; bg: string; glow: string }> = {
@@ -160,9 +178,22 @@ function PickCard({
               {pick.category && (
                 <span className="text-xs px-2 py-0.5 rounded-full bg-white/5 text-text-dim">{pick.category}</span>
               )}
-              {pick.platform && (
-                <span className="text-xs text-text-dim">{pick.platform}</span>
-              )}
+              {pick.platform && (() => {
+                const url = getMarketUrl(pick.platform, pick.market_id);
+                return url ? (
+                  <a
+                    href={url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={(e) => e.stopPropagation()}
+                    className="flex items-center gap-1 text-xs text-text-dim hover:text-white transition-colors"
+                  >
+                    {pick.platform} <ExternalLink size={10} />
+                  </a>
+                ) : (
+                  <span className="text-xs text-text-dim">{pick.platform}</span>
+                );
+              })()}
               <ResultBadge result={pick.result} />
             </div>
             <p className="text-white font-semibold text-sm leading-snug mb-1">{pick.event}</p>
@@ -276,9 +307,21 @@ function FreePickCard({
 
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1 flex-wrap">
-              {pick.platform && (
-                <span className="text-xs text-text-dim">{pick.platform}</span>
-              )}
+              {pick.platform && (() => {
+                const url = getMarketUrl(pick.platform, pick.market_id);
+                return url ? (
+                  <a
+                    href={url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1 text-xs text-text-dim hover:text-white transition-colors"
+                  >
+                    {pick.platform} <ExternalLink size={10} />
+                  </a>
+                ) : (
+                  <span className="text-xs text-text-dim">{pick.platform}</span>
+                );
+              })()}
               <ResultBadge result={pick.result} />
             </div>
             <p className="text-white font-semibold text-sm leading-snug mb-1">{pick.event}</p>
@@ -373,6 +416,11 @@ export default function PicksPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Category filter state
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [savedCategoryFilter, setSavedCategoryFilter] = useState<string[] | null>(null);
+  const [savingFilter, setSavingFilter] = useState(false);
+
   // Paper trade modal state
   const [tradingPick, setTradingPick] = useState<Pick | null>(null);
   const [tradeStake, setTradeStake] = useState(10);
@@ -384,6 +432,8 @@ export default function PicksPage() {
     if (!isLoaded) return;
     if (!isSignedIn) { setLoading(false); return; }
     setLoading(true);
+    // Fire checkin for streak (fire-and-forget)
+    fetch("/api/streak", { method: "POST" }).catch(() => {});
     fetch("/api/picks")
       .then((r) => r.json())
       .then((d) => {
@@ -394,6 +444,9 @@ export default function PicksPage() {
           setRecord(d.record ?? null);
           setIsAdmin(d.isAdmin ?? false);
           setIsFree(d.isFree ?? false);
+          const saved = d.savedCategoryFilter ?? null;
+          setSavedCategoryFilter(saved);
+          if (saved && saved.length > 0) setSelectedCategories(saved);
         }
       })
       .catch(() => setError("Failed to load picks"))
@@ -427,6 +480,27 @@ export default function PicksPage() {
       .then((d) => { if (d.record) setRecord(d.record); })
       .catch(() => {});
   }, []);
+
+  const saveFilter = async () => {
+    setSavingFilter(true);
+    const payload = selectedCategories.length > 0 ? selectedCategories : null;
+    await fetch("/api/preferences", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ categoryFilter: payload }),
+    }).catch(() => {});
+    setSavedCategoryFilter(payload);
+    setSavingFilter(false);
+  };
+
+  const allCategories = [...new Set(picks.map((p) => p.category).filter(Boolean))].sort();
+  const filteredPicks = selectedCategories.length > 0
+    ? picks.filter((p) => selectedCategories.includes(p.category))
+    : picks;
+
+  const filterDirty =
+    JSON.stringify([...selectedCategories].sort()) !==
+    JSON.stringify([...(savedCategoryFilter ?? [])].sort());
 
   const formattedDate = pickDate
     ? new Date(pickDate + "T12:00:00").toLocaleDateString("en-US", {
@@ -543,7 +617,8 @@ export default function PicksPage() {
         </div>
       )}
 
-      <div className="max-w-3xl mx-auto px-4 py-10">
+      {isSignedIn && !loading && !isFree && <MobileNav activeTab="picks" />}
+      <div className="max-w-3xl mx-auto px-4 py-10 pb-24 sm:pb-10">
         <div className="mb-8">
           <div className="flex items-center gap-2 mb-2">
             <Sparkles size={18} className="text-[#00dc82]" />
@@ -609,6 +684,56 @@ export default function PicksPage() {
           </div>
         )}
 
+        {!loading && picks.length > 0 && allCategories.length > 1 && !isFree && (
+          <div className="mb-6">
+            <div className="flex items-center gap-2 mb-3">
+              <SlidersHorizontal size={14} className="text-text-dim" />
+              <span className="text-xs text-text-dim font-medium uppercase tracking-wider">Filter by category</span>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={() => setSelectedCategories([])}
+                className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${
+                  selectedCategories.length === 0
+                    ? "bg-[#00dc82] text-[#070d1a] border-[#00dc82]"
+                    : "border-border-subtle text-text-dim hover:border-white/30 hover:text-white"
+                }`}
+              >
+                All
+              </button>
+              {allCategories.map((cat) => {
+                const active = selectedCategories.includes(cat);
+                return (
+                  <button
+                    key={cat}
+                    onClick={() =>
+                      setSelectedCategories((prev) =>
+                        active ? prev.filter((c) => c !== cat) : [...prev, cat]
+                      )
+                    }
+                    className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${
+                      active
+                        ? "bg-[#00dc82]/15 text-[#00dc82] border-[#00dc82]/50"
+                        : "border-border-subtle text-text-dim hover:border-white/30 hover:text-white"
+                    }`}
+                  >
+                    {cat}
+                  </button>
+                );
+              })}
+            </div>
+            {filterDirty && (
+              <button
+                onClick={saveFilter}
+                disabled={savingFilter}
+                className="mt-3 text-xs text-[#00dc82] hover:brightness-110 transition-colors disabled:opacity-50 underline underline-offset-2"
+              >
+                {savingFilter ? "Saving..." : "Save as my default"}
+              </button>
+            )}
+          </div>
+        )}
+
         {!loading && picks.length > 0 && (
           <div className="space-y-4">
             {record && <RecordBar record={record} />}
@@ -629,7 +754,9 @@ export default function PicksPage() {
               </div>
             )}
 
-            {picks.map((pick) =>
+            {filteredPicks.length === 0 && selectedCategories.length > 0 ? (
+              <p className="text-center text-text-dim text-sm py-8">No picks in the selected categories today.</p>
+            ) : filteredPicks.map((pick) =>
               isFree ? (
                 <FreePickCard
                   key={pick.id}

@@ -53,5 +53,13 @@ export async function GET() {
     record = { wins, losses, voids, winRate: total > 0 ? Math.round((wins / total) * 100) : null, total };
   }
 
-  return NextResponse.json({ picks, pickDate: mostRecentDate, record, isAdmin, isFree: !isPro });
+  // Fetch saved category preference for the filter UI
+  const { data: prefs } = await getSupabase()
+    .from("user_preferences")
+    .select("category_filter")
+    .eq("user_id", userId)
+    .single();
+  const savedCategoryFilter = (prefs?.category_filter as string[] | null) ?? null;
+
+  return NextResponse.json({ picks, pickDate: mostRecentDate, record, isAdmin, isFree: !isPro, savedCategoryFilter });
 }

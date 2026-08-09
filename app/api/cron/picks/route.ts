@@ -14,19 +14,24 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 async function sendPicksDigest(picks: Record<string, unknown>[], dateLabel: string) {
   if (!process.env.RESEND_API_KEY) return;
 
-  // Fetch all active subscriber user IDs from Supabase
-  const { data: subs } = await getSupabase()
-    .from("subscriptions")
-    .select("user_id")
-    .in("status", ["active", "trialing"]);
+  const supabase = getSupabase();
+
+  // Fetch all active subscriber user IDs + their category preferences in parallel
+  const [{ data: subs }, { data: allPrefs }] = await Promise.all([
+    supabase.from("subscriptions").select("user_id").in("status", ["active", "trialing"]),
+    supabase.from("user_preferences").select("user_id, category_filter"),
+  ]);
 
   if (!subs || subs.length === 0) return;
 
-  // Fetch emails from Clerk for each subscriber
   const clerkSecretKey = process.env.CLERK_SECRET_KEY;
   if (!clerkSecretKey) return;
 
-  const emails: string[] = [];
+  const prefsByUser = new Map<string, string[] | null>(
+    (allPrefs ?? []).map((p) => [p.user_id as string, p.category_filter as string[] | null])
+  );
+
+  // Fetch emails and send per-user filtered digest
   await Promise.all(
     subs.map(async ({ user_id }: { user_id: string }) => {
       try {
@@ -38,31 +43,32 @@ async function sendPicksDigest(picks: Record<string, unknown>[], dateLabel: stri
         const primary = user.email_addresses?.find(
           (e: { id: string; email_address: string }) => e.id === user.primary_email_address_id
         );
-        if (primary?.email_address) emails.push(primary.email_address);
-      } catch {
-        // skip failed lookups
+        const email = primary?.email_address;
+        if (!email) return;
+
+        // Filter picks by this user's category preference (null = all picks)
+        const catFilter = prefsByUser.get(user_id) ?? null;
+        const userPicks = catFilter && catFilter.length > 0
+          ? picks.filter((p) => catFilter.includes(p.category as string))
+          : picks;
+
+        if (userPicks.length === 0) return; // no picks match their filter — skip
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const html = await render(DailyPicksEmail({ picks: userPicks as any, dateLabel }));
+        await resend.emails.send({
+          from: "FadeMe.ai <picks@fademe.ai>",
+          to: email,
+          subject: `Your ${userPicks.length} AI picks for ${dateLabel}`,
+          html,
+        });
+      } catch (e) {
+        console.error(`Failed to send picks digest:`, e);
       }
     })
   );
 
-  if (emails.length === 0) return;
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const html = await render(DailyPicksEmail({ picks: picks as any, dateLabel }));
-
-  // Send individually to avoid exposing subscriber addresses to each other
-  await Promise.all(
-    emails.map((email) =>
-      resend.emails.send({
-        from: "FadeMe.ai <picks@fademe.ai>",
-        to: email,
-        subject: `Your ${picks.length} AI picks for ${dateLabel}`,
-        html,
-      }).catch((e) => console.error(`Failed to send picks to ${email}:`, e))
-    )
-  );
-
-  console.log(`Picks digest sent to ${emails.length} subscribers`);
+  console.log(`Picks digest sent to ${subs.length} subscribers`);
 }
 
 async function tavilySearch(query: string): Promise<string> {
@@ -178,7 +184,7 @@ Return ONLY a valid JSON array (no markdown, no explanation). Include between 3 
     "keyRisks": ["string", "string", "string"],
     "marketInefficiency": "string",
     "confidenceLevel": "string (High or Very High)",
-    "marketId": "string or null (Kalshi ticker exactly as it appears in the market data e.g. KXBTC-25DEC31-B50000, or Polymarket conditionId hex string — null if not available)"
+    "marketId": "string or null (Kalshi ticker exactly as it appears in the market data e.g. KXBTC-25DEC31-B50000, or Polymarket market slug string e.g. will-the-fed-cut-rates — null if not available)"
   }
 ]
 

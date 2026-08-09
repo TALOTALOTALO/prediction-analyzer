@@ -57,8 +57,11 @@ function parseMarketUrl(rawUrl: string): { platform: "Kalshi" | "Polymarket"; ma
     const host = parsed.hostname.toLowerCase();
     const segments = parsed.pathname.split("/").filter(Boolean);
 
-    if (host.includes("kalshi.com") && segments[0] === "markets" && segments[1]) {
-      return { platform: "Kalshi", marketId: segments[1].toUpperCase() };
+    if (host.includes("kalshi.com") && segments[0] === "markets" && segments.length >= 2) {
+      // URL format: /markets/{event-ticker}/{event-slug}/{market-ticker}
+      // The last segment is the actual market ticker
+      const marketTicker = segments[segments.length - 1];
+      return { platform: "Kalshi", marketId: marketTicker.toUpperCase() };
     }
 
     if (host.includes("polymarket.com") && segments.length >= 1) {
@@ -85,40 +88,85 @@ interface MarketData {
   rawText: string;
 }
 
+function buildKalshiHeaders(path: string): Record<string, string> {
+  const keyId = process.env.KALSHI_API_KEY_ID;
+  const privateKeyRaw = process.env.KALSHI_PRIVATE_KEY;
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (keyId && privateKeyRaw) {
+    const privateKey = privateKeyRaw.replace(/\\n/g, "\n");
+    const ts = Date.now();
+    headers["KALSHI-ACCESS-KEY"] = keyId;
+    headers["KALSHI-ACCESS-TIMESTAMP"] = String(ts);
+    headers["KALSHI-ACCESS-SIGNATURE"] = kalshiSign(privateKey, ts, "GET", path);
+  }
+  return headers;
+}
+
 async function fetchKalshiMarket(ticker: string): Promise<MarketData | null> {
   try {
-    const keyId = process.env.KALSHI_API_KEY_ID;
-    const privateKeyRaw = process.env.KALSHI_PRIVATE_KEY;
-    const path = `/trade-api/v2/markets/${ticker}`;
-    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    // First try direct market lookup (works when ticker is a specific market like TICKER-OUTCOME)
+    const singlePath = `/trade-api/v2/markets/${ticker}`;
+    const singleRes = await fetch(`https://api.elections.kalshi.com${singlePath}`, {
+      headers: buildKalshiHeaders(singlePath),
+    });
 
-    if (keyId && privateKeyRaw) {
-      const privateKey = privateKeyRaw.replace(/\\n/g, "\n");
-      const ts = Date.now();
-      headers["KALSHI-ACCESS-KEY"] = keyId;
-      headers["KALSHI-ACCESS-TIMESTAMP"] = String(ts);
-      headers["KALSHI-ACCESS-SIGNATURE"] = kalshiSign(privateKey, ts, "GET", path);
+    if (singleRes.ok) {
+      const data = await singleRes.json();
+      const m = data.market;
+      if (m) {
+        const lastPrice: number = m.last_price ?? m.yes_bid ?? 50;
+        return {
+          platform: "Kalshi",
+          event: m.title ?? ticker,
+          position: "YES",
+          odds: `${lastPrice}¢`,
+          impliedProbability: lastPrice,
+          expirationDate: m.close_time ? new Date(m.close_time).toLocaleDateString("en-US") : "unknown",
+          category: m.category ?? "Other",
+          marketId: ticker,
+          rawText: `Ticker: ${ticker}. Status: ${m.status ?? "unknown"}. Yes bid: ${m.yes_bid ?? "?"}¢, Yes ask: ${m.yes_ask ?? "?"}¢.`,
+        };
+      }
     }
 
-    const res = await fetch(`https://api.elections.kalshi.com${path}`, { headers });
-    if (!res.ok) return null;
-    const data = await res.json();
-    const m = data.market;
-    if (!m) return null;
+    // Fall back: treat ticker as an event ticker and fetch all markets in the event.
+    // Kalshi event pages (e.g. /markets/kxeculpgame/.../kxeculpgame-26aug09guacse) use this format.
+    const eventPath = `/trade-api/v2/markets?event_ticker=${ticker}&status=open&limit=20`;
+    const eventRes = await fetch(`https://api.elections.kalshi.com${eventPath}`, {
+      headers: buildKalshiHeaders(eventPath),
+    });
+    if (!eventRes.ok) return null;
+    const eventData = await eventRes.json();
+    const markets: Record<string, unknown>[] = eventData.markets ?? [];
+    if (markets.length === 0) return null;
 
-    const lastPrice: number = m.last_price ?? m.yes_bid ?? 50;
-    const impliedProbability = lastPrice; // Kalshi prices are in cents = direct probability %
+    // Build a combined summary of all outcomes (e.g. Team A wins, Tie, Team B wins)
+    const title = (markets[0].title as string) ?? ticker;
+    const closeTime = markets[0].close_time as string | undefined;
+    const outcomes = markets.map((m) => {
+      const label = (m.yes_sub_title as string) ?? (m.ticker as string);
+      const yesBid = Math.round(parseFloat((m.yes_bid_dollars as string) ?? "0") * 100);
+      const yesAsk = Math.round(parseFloat((m.yes_ask_dollars as string) ?? "0") * 100);
+      return `${label}: ${yesBid}¢–${yesAsk}¢`;
+    });
+    // Use the most expensive YES bid as the primary implied probability (likely favourite)
+    const bestMarket = markets.reduce((best, m) => {
+      const bid = parseFloat((m.yes_bid_dollars as string) ?? "0");
+      return bid > parseFloat((best.yes_bid_dollars as string) ?? "0") ? m : best;
+    }, markets[0]);
+    const bestYesBid = Math.round(parseFloat((bestMarket.yes_bid_dollars as string) ?? "0") * 100);
+    const bestLabel = (bestMarket.yes_sub_title as string) ?? "YES";
 
     return {
       platform: "Kalshi",
-      event: m.title ?? ticker,
-      position: "YES",
-      odds: `${lastPrice}¢`,
-      impliedProbability,
-      expirationDate: m.close_time ? new Date(m.close_time).toLocaleDateString("en-US") : "unknown",
-      category: m.category ?? "Other",
+      event: title,
+      position: bestLabel,
+      odds: `${bestYesBid}¢`,
+      impliedProbability: bestYesBid,
+      expirationDate: closeTime ? new Date(closeTime).toLocaleDateString("en-US") : "unknown",
+      category: "Sports",
       marketId: ticker,
-      rawText: `Ticker: ${ticker}. Status: ${m.status ?? "unknown"}. Yes bid: ${m.yes_bid ?? "?"}¢, Yes ask: ${m.yes_ask ?? "?"}¢.`,
+      rawText: `Event: ${ticker}. Outcomes — ${outcomes.join(" | ")}. Favorite: ${bestLabel} at ${bestYesBid}¢ implied probability.`,
     };
   } catch {
     return null;

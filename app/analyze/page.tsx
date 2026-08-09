@@ -5,6 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useSearchParams } from "next/navigation";
 import { UserButton } from "@clerk/nextjs";
+import MobileNav from "@/components/MobileNav";
 import {
   Upload,
   ArrowLeft,
@@ -23,6 +24,7 @@ import {
   LogOut,
   Clock,
   Link2,
+  Flame,
 } from "lucide-react";
 
 interface DetectedBet {
@@ -118,6 +120,8 @@ function AnalyzePageInner() {
     created_at: string; platform: string; outcome: "correct" | "incorrect" | null;
   }>>([]);
 
+  const [streak, setStreak] = useState<number | null>(null);
+
   const [inputMode, setInputMode] = useState<"screenshot" | "url">("screenshot");
   const [marketUrl, setMarketUrl] = useState("");
   const [dragActive, setDragActive] = useState(false);
@@ -134,6 +138,12 @@ function AnalyzePageInner() {
       .then((d) => {
         if (d.active) {
           setSubStatus("active");
+          // Log checkin then fetch streak
+          fetch("/api/streak", { method: "POST" })
+            .then(() => fetch("/api/streak"))
+            .then((r) => r.json())
+            .then((s) => setStreak(s.streak ?? 0))
+            .catch(() => {});
           fetch("/api/picks")
             .then((r) => r.json())
             .then((data) => { if (data.picks) setDashPicks(data.picks.slice(0, 3)); })
@@ -309,6 +319,7 @@ function AnalyzePageInner() {
 
   return (
     <div className="min-h-screen bg-bg">
+      {subStatus === "active" && <MobileNav activeTab="analyze" />}
       {/* Nav */}
       <nav className="border-b border-border-subtle px-6 py-4">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
@@ -354,7 +365,7 @@ function AnalyzePageInner() {
         </div>
       </nav>
 
-      <div className="max-w-4xl mx-auto px-4 py-10">
+      <div className="max-w-4xl mx-auto px-4 py-10 pb-24 sm:pb-10">
         {/* Success banner */}
         {justSubscribed && (
           <div className="mb-6 p-4 rounded-xl bg-green-bright/10 border border-green-bright/30 flex items-center gap-3">
@@ -362,6 +373,16 @@ function AnalyzePageInner() {
             <p className="text-green-bright text-sm font-medium">
               Welcome to FadeMe Pro! Your first week is just $1. Start analyzing below.
             </p>
+          </div>
+        )}
+
+        {/* Streak badge */}
+        {streak !== null && streak >= 1 && (
+          <div className="mb-5 flex items-center gap-2 w-fit px-3 py-1.5 rounded-full border border-orange-500/30 bg-orange-500/10">
+            <Flame size={14} className="text-orange-400" />
+            <span className="text-xs font-semibold text-orange-300">
+              {streak >= 2 ? `${streak}-day streak` : "Day 1 — come back tomorrow to keep it going"}
+            </span>
           </div>
         )}
 

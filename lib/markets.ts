@@ -95,7 +95,7 @@ export async function fetchPolymarkets(): Promise<LiveMarket[]> {
         return {
           platform: "Polymarket",
           question: m.question as string,
-          marketId: (m.id as string) ?? (m.conditionId as string) ?? undefined,
+          marketId: (m.slug as string) ?? (m.id as string) ?? undefined,
           yesPrice,
           noPrice: 100 - yesPrice,
           volume: (m.volumeNum as number) ?? parseFloat((m.volume as string) ?? "0"),
