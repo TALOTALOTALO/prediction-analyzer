@@ -1,98 +1,307 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { UserButton } from "@clerk/nextjs";
 import {
-  ArrowLeft, TrendingUp, TrendingDown, CheckCircle, XCircle,
-  MinusCircle, Clock, Zap, BarChart2, Trophy,
+  ArrowLeft,
+  Plus,
+  ChevronDown,
+  ChevronUp,
+  CheckCircle,
+  XCircle,
+  MinusCircle,
+  Clock,
+  Trash2,
+  TrendingUp,
+  TrendingDown,
 } from "lucide-react";
+import MobileNav from "@/components/MobileNav";
 
-interface Trade {
+interface ManualTrade {
   id: string;
-  created_at: string;
-  virtual_stake: number;
+  market: string;
+  platform: string | null;
   position: string;
   entry_price: number;
+  stake: number;
   result: "won" | "lost" | "void" | null;
-  virtual_payout: number | null;
-  daily_picks: {
-    event: string;
-    platform: string;
-    grade: string;
-    recommendation: string;
-    pick_date: string;
-  } | null;
+  notes: string | null;
+  created_at: string;
 }
 
 interface Portfolio {
   balance: number;
   pnl: number;
+  startingBalance: number;
   wins: number;
   losses: number;
   pending: number;
   winRate: number | null;
-  totalStaked: number;
-  startingBalance: number;
 }
 
-const GRADE_CONFIG: Record<string, { text: string; bg: string; border: string }> = {
-  S: { text: "text-[#00dc82]", bg: "bg-[#00dc82]/10", border: "border-[#00dc82]/40" },
-  A: { text: "text-[#00c86e]", bg: "bg-[#00c86e]/10", border: "border-[#00c86e]/40" },
-  B: { text: "text-blue-400", bg: "bg-blue-500/10", border: "border-blue-500/40" },
-  C: { text: "text-yellow-400", bg: "bg-yellow-500/10", border: "border-yellow-500/40" },
-};
+const PLATFORMS = ["Kalshi", "Polymarket", "PredictIt", "FanDuel", "Robinhood", "Other"];
 
-function ResultBadge({ result }: { result: Trade["result"] }) {
-  if (result === "won") return (
-    <span className="flex items-center gap-1 text-xs font-bold text-[#00dc82] bg-[#00dc82]/10 px-2.5 py-1 rounded-full">
-      <CheckCircle size={11} /> Won
-    </span>
-  );
-  if (result === "lost") return (
-    <span className="flex items-center gap-1 text-xs font-bold text-red-400 bg-red-500/10 px-2.5 py-1 rounded-full">
-      <XCircle size={11} /> Lost
-    </span>
-  );
-  if (result === "void") return (
-    <span className="flex items-center gap-1 text-xs font-bold text-zinc-400 bg-white/5 px-2.5 py-1 rounded-full">
-      <MinusCircle size={11} /> Void
-    </span>
-  );
+function tradePnl(trade: ManualTrade): number | null {
+  if (trade.result === null) return null;
+  if (trade.result === "won") return trade.stake * (100 - trade.entry_price) / trade.entry_price;
+  if (trade.result === "lost") return -trade.stake;
+  return 0; // void
+}
+
+function fmt(n: number): string {
+  return n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function ResultBadge({ result }: { result: ManualTrade["result"] }) {
+  if (result === "won")
+    return (
+      <span className="flex items-center gap-1 text-xs font-bold text-[#00dc82] bg-[#00dc82]/10 px-2.5 py-1 rounded-full whitespace-nowrap">
+        <CheckCircle size={11} /> Won
+      </span>
+    );
+  if (result === "lost")
+    return (
+      <span className="flex items-center gap-1 text-xs font-bold text-red-400 bg-red-500/10 px-2.5 py-1 rounded-full whitespace-nowrap">
+        <XCircle size={11} /> Lost
+      </span>
+    );
+  if (result === "void")
+    return (
+      <span className="flex items-center gap-1 text-xs font-bold text-zinc-400 bg-white/5 px-2.5 py-1 rounded-full whitespace-nowrap">
+        <MinusCircle size={11} /> Void
+      </span>
+    );
   return (
-    <span className="flex items-center gap-1 text-xs text-text-dim bg-white/5 px-2.5 py-1 rounded-full">
+    <span className="flex items-center gap-1 text-xs text-text-dim bg-white/5 px-2.5 py-1 rounded-full whitespace-nowrap">
       <Clock size={11} /> Pending
     </span>
   );
 }
 
+function TradeCard({
+  trade,
+  onUpdate,
+  onDelete,
+}: {
+  trade: ManualTrade;
+  onUpdate: (id: string, result: ManualTrade["result"]) => void;
+  onDelete: (id: string) => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  const pnl = tradePnl(trade);
+  const pnlPositive = pnl !== null && pnl >= 0;
+
+  const mark = async (result: ManualTrade["result"]) => {
+    setSaving(true);
+    const next = trade.result === result ? null : result;
+    try {
+      const res = await fetch(`/api/manual-trades/${trade.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ result: next }),
+      });
+      if (res.ok) onUpdate(trade.id, next);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const del = async () => {
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/manual-trades/${trade.id}`, { method: "DELETE" });
+      if (res.ok) onDelete(trade.id);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  return (
+    <div className="rounded-2xl border border-border-subtle bg-card overflow-hidden">
+      <button
+        onClick={() => setExpanded((v) => !v)}
+        className="w-full text-left px-5 py-4 hover:bg-white/[0.02] transition-colors"
+      >
+        <div className="flex items-center gap-3">
+          <div className="flex-1 min-w-0">
+            <p className="text-white text-sm font-medium leading-snug truncate">{trade.market}</p>
+            <p className="text-text-dim text-xs mt-0.5">
+              {[trade.platform, `${trade.position} @ ${trade.entry_price.toFixed(0)}¢`, `$${trade.stake.toLocaleString()} staked`]
+                .filter(Boolean)
+                .join(" · ")}
+            </p>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            {pnl !== null ? (
+              <span className={`text-sm font-bold ${pnlPositive ? "text-[#00dc82]" : "text-red-400"}`}>
+                {pnlPositive ? "+" : ""}${fmt(Math.abs(pnl))}
+              </span>
+            ) : (
+              <ResultBadge result={null} />
+            )}
+            {expanded ? <ChevronUp size={15} className="text-text-dim" /> : <ChevronDown size={15} className="text-text-dim" />}
+          </div>
+        </div>
+      </button>
+
+      {expanded && (
+        <div className="border-t border-white/5 px-5 pb-5 pt-4 space-y-4">
+          <div className="flex gap-4 text-xs flex-wrap">
+            {trade.platform && <div><p className="text-text-dim mb-0.5">Platform</p><p className="text-white font-medium">{trade.platform}</p></div>}
+            <div><p className="text-text-dim mb-0.5">Position</p><p className="text-white font-medium">{trade.position}</p></div>
+            <div><p className="text-text-dim mb-0.5">Entry Price</p><p className="text-white font-medium">{trade.entry_price.toFixed(0)}¢</p></div>
+            <div><p className="text-text-dim mb-0.5">Staked</p><p className="text-white font-medium">${trade.stake.toLocaleString()}</p></div>
+            {trade.result === "won" && pnl !== null && (
+              <div><p className="text-text-dim mb-0.5">Profit</p><p className="text-[#00dc82] font-bold">+${fmt(pnl)}</p></div>
+            )}
+            {trade.result === "lost" && pnl !== null && (
+              <div><p className="text-text-dim mb-0.5">Loss</p><p className="text-red-400 font-bold">-${fmt(Math.abs(pnl))}</p></div>
+            )}
+            {trade.result === null && (
+              <div>
+                <p className="text-text-dim mb-0.5">If wins</p>
+                <p className="text-[#00dc82] font-medium">+${fmt(trade.stake * (100 - trade.entry_price) / trade.entry_price)}</p>
+              </div>
+            )}
+          </div>
+
+          {trade.notes && (
+            <p className="text-xs text-text-dim italic leading-snug">{trade.notes}</p>
+          )}
+
+          <div className="flex items-center justify-between gap-3 pt-1">
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs text-text-dim mr-1">Mark result:</span>
+              {(["won", "lost", "void"] as const).map((r) => (
+                <button
+                  key={r}
+                  onClick={() => mark(r)}
+                  disabled={saving}
+                  className={`text-xs px-2.5 py-1 rounded-full border transition-all disabled:opacity-50 ${
+                    trade.result === r
+                      ? r === "won"
+                        ? "bg-[#00dc82]/20 border-[#00dc82]/50 text-[#00dc82] font-bold"
+                        : r === "lost"
+                        ? "bg-red-500/20 border-red-500/50 text-red-400 font-bold"
+                        : "bg-white/10 border-white/20 text-white font-bold"
+                      : "border-white/10 text-text-dim hover:border-white/30 hover:text-white"
+                  }`}
+                >
+                  {r.charAt(0).toUpperCase() + r.slice(1)}
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={del}
+              disabled={deleting}
+              className="text-text-dim hover:text-red-400 transition-colors disabled:opacity-50"
+              title="Delete trade"
+            >
+              <Trash2 size={14} />
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+const EMPTY_FORM = { market: "", platform: "", position: "YES", entry_price: "", stake: "", notes: "" };
+
 export default function PortfolioPage() {
-  const [trades, setTrades] = useState<Trade[]>([]);
+  const [trades, setTrades] = useState<ManualTrade[]>([]);
   const [portfolio, setPortfolio] = useState<Portfolio | null>(null);
-  const [isFree, setIsFree] = useState(true);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetch("/api/paper-trades")
-      .then((r) => r.json())
-      .then((d) => {
-        if (d.error) setError(d.error);
-        else {
-          setTrades(d.trades ?? []);
-          setPortfolio(d.portfolio ?? null);
-          setIsFree(d.isFree ?? true);
-        }
-      })
-      .catch(() => setError("Failed to load portfolio"))
-      .finally(() => setLoading(false));
+  const [formOpen, setFormOpen] = useState(false);
+  const [form, setForm] = useState(EMPTY_FORM);
+  const [submitting, setSubmitting] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    try {
+      const res = await fetch("/api/manual-trades");
+      const d = await res.json();
+      if (d.error) { setError(d.error); return; }
+      setTrades(d.trades ?? []);
+      setPortfolio(d.portfolio ?? null);
+    } catch {
+      setError("Failed to load portfolio");
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const submit = async () => {
+    setFormError(null);
+    const price = parseFloat(form.entry_price);
+    const amount = parseFloat(form.stake);
+
+    if (!form.market.trim()) { setFormError("Market name is required."); return; }
+    if (isNaN(price) || price <= 0 || price >= 100) { setFormError("Entry price must be between 1 and 99."); return; }
+    if (isNaN(amount) || amount <= 0) { setFormError("Stake must be a positive number."); return; }
+
+    setSubmitting(true);
+    try {
+      const res = await fetch("/api/manual-trades", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          market: form.market,
+          platform: form.platform || null,
+          position: form.position,
+          entry_price: price,
+          stake: amount,
+          notes: form.notes || null,
+        }),
+      });
+      const d = await res.json();
+      if (!res.ok) { setFormError(d.error ?? "Failed to add trade."); return; }
+      setTrades((prev) => [d.trade, ...prev]);
+      setPortfolio((prev) => {
+        if (!prev) return prev;
+        return { ...prev, pending: prev.pending + 1 };
+      });
+      setForm(EMPTY_FORM);
+      setFormOpen(false);
+    } catch {
+      setFormError("Something went wrong. Try again.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleUpdate = useCallback((id: string, result: ManualTrade["result"]) => {
+    setTrades((prev) => prev.map((t) => t.id === id ? { ...t, result } : t));
+    load();
+  }, [load]);
+
+  const handleDelete = useCallback((id: string) => {
+    setTrades((prev) => prev.filter((t) => t.id !== id));
+    load();
+  }, [load]);
 
   const pnlPositive = (portfolio?.pnl ?? 0) >= 0;
 
+  const potentialProfit = (() => {
+    const price = parseFloat(form.entry_price);
+    const amount = parseFloat(form.stake);
+    if (isNaN(price) || isNaN(amount) || price <= 0 || price >= 100 || amount <= 0) return null;
+    return amount * (100 - price) / price;
+  })();
+
   return (
     <div className="min-h-screen bg-bg">
+      <MobileNav activeTab="picks" />
+
       <nav className="border-b border-border-subtle px-6 py-4">
         <div className="max-w-3xl mx-auto flex items-center justify-between">
           <Link href="/picks" className="flex items-center gap-2 text-text-dim hover:text-white transition-colors">
@@ -109,11 +318,32 @@ export default function PortfolioPage() {
         </div>
       </nav>
 
-      <div className="max-w-3xl mx-auto px-4 py-10">
-        <div className="mb-8">
-          <h1 className="text-2xl font-bold mb-1">Paper Portfolio</h1>
-          <p className="text-text-dim text-sm">Track how you&apos;d do trading AI picks with virtual money.</p>
-        </div>
+      <div className="max-w-3xl mx-auto px-4 py-8 pb-28 sm:pb-10">
+
+        {/* Balance + P&L card */}
+        {portfolio && (
+          <div className="rounded-2xl border border-border-subtle bg-card px-6 py-5 mb-4">
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-xs text-text-dim uppercase tracking-wider mb-1 font-medium">Balance</p>
+                <p className="text-3xl font-black text-white">${fmt(portfolio.balance)}</p>
+              </div>
+              <div className="text-right">
+                <p className="text-xs text-text-dim uppercase tracking-wider mb-1 font-medium">P&amp;L</p>
+                <p className={`text-3xl font-black ${pnlPositive ? "text-[#00dc82]" : "text-red-400"}`}>
+                  {pnlPositive ? "+" : "−"}${fmt(Math.abs(portfolio.pnl))}
+                </p>
+              </div>
+            </div>
+            {(portfolio.wins + portfolio.losses > 0 || portfolio.pending > 0) && (
+              <div className="flex gap-4 text-xs text-text-dim mt-4 pt-4 border-t border-white/5">
+                <span>{portfolio.wins}W · {portfolio.losses}L</span>
+                {portfolio.winRate !== null && <span>{portfolio.winRate}% win rate</span>}
+                {portfolio.pending > 0 && <span>{portfolio.pending} pending</span>}
+              </div>
+            )}
+          </div>
+        )}
 
         {loading && (
           <div className="flex items-center justify-center py-24">
@@ -122,145 +352,170 @@ export default function PortfolioPage() {
         )}
 
         {error && (
-          <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/30 text-red-300 text-sm">{error}</div>
+          <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/30 text-red-300 text-sm mb-4">{error}</div>
         )}
 
-        {!loading && !error && portfolio && (
+        {!loading && (
           <>
-            {/* Portfolio stats */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-              <StatCard
-                label="Virtual Balance"
-                value={`$${portfolio.balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-                sub={`Started with $${portfolio.startingBalance.toLocaleString()}`}
-                highlight
-              />
-              <StatCard
-                label="P&L"
-                value={`${pnlPositive ? "+" : ""}$${portfolio.pnl.toFixed(2)}`}
-                sub={`${pnlPositive ? "+" : ""}${portfolio.startingBalance > 0 ? ((portfolio.pnl / portfolio.startingBalance) * 100).toFixed(1) : 0}%`}
-                positive={pnlPositive}
-                negative={!pnlPositive}
-              />
-              <StatCard
-                label="Win Rate"
-                value={portfolio.winRate !== null ? `${portfolio.winRate}%` : "—"}
-                sub={`${portfolio.wins}W · ${portfolio.losses}L`}
-              />
-              <StatCard
-                label="Pending"
-                value={String(portfolio.pending)}
-                sub="awaiting resolution"
-              />
+            {/* Enter Trade form */}
+            <div className="rounded-2xl border border-border-subtle bg-card mb-4 overflow-hidden">
+              <button
+                onClick={() => setFormOpen((v) => !v)}
+                className="w-full flex items-center justify-between px-5 py-4 hover:bg-white/[0.02] transition-colors"
+              >
+                <div className="flex items-center gap-2">
+                  <Plus size={16} className="text-[#00dc82]" />
+                  <span className="text-white font-semibold">Enter Trade</span>
+                </div>
+                {formOpen ? <ChevronUp size={16} className="text-text-dim" /> : <ChevronDown size={16} className="text-text-dim" />}
+              </button>
+
+              {formOpen && (
+                <div className="border-t border-white/5 px-5 pb-5 pt-4 space-y-4">
+                  {/* Market */}
+                  <div>
+                    <label className="text-xs text-text-dim uppercase tracking-wider font-medium block mb-1.5">Market / Event</label>
+                    <input
+                      type="text"
+                      value={form.market}
+                      onChange={(e) => setForm((f) => ({ ...f, market: e.target.value }))}
+                      placeholder="e.g. Will the Fed cut rates in September?"
+                      className="w-full bg-white/5 border border-border-subtle rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-text-dim focus:outline-none focus:border-[#00dc82]/50 transition-colors"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    {/* Platform */}
+                    <div>
+                      <label className="text-xs text-text-dim uppercase tracking-wider font-medium block mb-1.5">Platform</label>
+                      <select
+                        value={form.platform}
+                        onChange={(e) => setForm((f) => ({ ...f, platform: e.target.value }))}
+                        className="w-full bg-white/5 border border-border-subtle rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-[#00dc82]/50 transition-colors appearance-none"
+                      >
+                        <option value="">Optional</option>
+                        {PLATFORMS.map((p) => <option key={p} value={p}>{p}</option>)}
+                      </select>
+                    </div>
+
+                    {/* Position */}
+                    <div>
+                      <label className="text-xs text-text-dim uppercase tracking-wider font-medium block mb-1.5">Position</label>
+                      <div className="flex gap-1 p-0.5 rounded-xl bg-white/5 border border-border-subtle h-[42px]">
+                        {["YES", "NO"].map((pos) => (
+                          <button
+                            key={pos}
+                            type="button"
+                            onClick={() => setForm((f) => ({ ...f, position: pos }))}
+                            className={`flex-1 rounded-lg text-sm font-semibold transition-all flex items-center justify-center gap-1 ${
+                              form.position === pos
+                                ? pos === "YES"
+                                  ? "bg-[#00dc82] text-[#070d1a]"
+                                  : "bg-red-500 text-white"
+                                : "text-text-dim hover:text-white"
+                            }`}
+                          >
+                            {pos === "YES" ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
+                            {pos}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    {/* Entry Price */}
+                    <div>
+                      <label className="text-xs text-text-dim uppercase tracking-wider font-medium block mb-1.5">Entry Price</label>
+                      <div className="relative">
+                        <input
+                          type="number"
+                          min="1"
+                          max="99"
+                          value={form.entry_price}
+                          onChange={(e) => setForm((f) => ({ ...f, entry_price: e.target.value }))}
+                          placeholder="65"
+                          className="w-full bg-white/5 border border-border-subtle rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-text-dim focus:outline-none focus:border-[#00dc82]/50 transition-colors pr-8"
+                        />
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-text-dim">¢</span>
+                      </div>
+                    </div>
+
+                    {/* Stake */}
+                    <div>
+                      <label className="text-xs text-text-dim uppercase tracking-wider font-medium block mb-1.5">Stake</label>
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-text-dim">$</span>
+                        <input
+                          type="number"
+                          min="1"
+                          value={form.stake}
+                          onChange={(e) => setForm((f) => ({ ...f, stake: e.target.value }))}
+                          placeholder="100"
+                          className="w-full bg-white/5 border border-border-subtle rounded-xl pl-7 pr-4 py-2.5 text-sm text-white placeholder:text-text-dim focus:outline-none focus:border-[#00dc82]/50 transition-colors"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Notes */}
+                  <div>
+                    <label className="text-xs text-text-dim uppercase tracking-wider font-medium block mb-1.5">Notes <span className="normal-case text-text-dim">(optional)</span></label>
+                    <input
+                      type="text"
+                      value={form.notes}
+                      onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
+                      placeholder="Why are you taking this position?"
+                      className="w-full bg-white/5 border border-border-subtle rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-text-dim focus:outline-none focus:border-[#00dc82]/50 transition-colors"
+                    />
+                  </div>
+
+                  {/* Profit preview */}
+                  {potentialProfit !== null && (
+                    <div className="flex items-center justify-between text-xs px-4 py-2.5 rounded-xl bg-[#00dc82]/5 border border-[#00dc82]/15">
+                      <span className="text-text-dim">If this wins:</span>
+                      <span className="text-[#00dc82] font-bold">+${fmt(potentialProfit)} profit</span>
+                    </div>
+                  )}
+
+                  {formError && <p className="text-red-400 text-xs">{formError}</p>}
+
+                  <button
+                    onClick={submit}
+                    disabled={submitting}
+                    className="w-full py-3 rounded-xl bg-[#00dc82] text-[#070d1a] font-bold text-sm hover:brightness-110 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {submitting ? "Adding trade…" : "Add Trade"}
+                  </button>
+                </div>
+              )}
             </div>
 
-            {/* Conversion CTA for free users only */}
-            {isFree && <div className="rounded-2xl border border-[#00dc82]/20 bg-[#00dc82]/5 p-5 flex flex-col sm:flex-row items-center justify-between gap-4 mb-8">
-              <div>
-                <div className="flex items-center gap-2 mb-1">
-                  <Trophy size={15} className="text-[#00dc82]" />
-                  <p className="text-white font-semibold text-sm">
-                    {pnlPositive
-                      ? `You'd be up $${portfolio.pnl.toFixed(2)} in real money.`
-                      : "See the full analysis behind every pick."}
-                  </p>
-                </div>
-                <p className="text-text-dim text-xs">
-                  Subscribe to unlock edge scores, entry strategy, and the AI Coach — $1 your first week.
-                </p>
-              </div>
-              <Link
-                href="/analyze"
-                className="shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#00dc82] text-[#070d1a] font-bold text-sm hover:brightness-110 transition-all"
-              >
-                <Zap size={13} /> Get Pro — $1
-              </Link>
-            </div>}
-
-            {/* Trade history */}
+            {/* Trade list */}
             {trades.length === 0 ? (
               <div className="text-center py-20">
                 <div className="w-14 h-14 rounded-2xl bg-white/5 border border-border-subtle flex items-center justify-center mx-auto mb-4">
-                  <BarChart2 size={24} className="text-text-dim" />
+                  <TrendingUp size={24} className="text-text-dim" />
                 </div>
-                <h2 className="text-lg font-semibold mb-2">No paper trades yet</h2>
-                <p className="text-text-dim text-sm mb-6">Head to today&apos;s picks and place your first virtual trade.</p>
-                <Link
-                  href="/picks"
+                <h2 className="text-lg font-semibold mb-2">No trades yet</h2>
+                <p className="text-text-dim text-sm mb-6">Enter your first paper trade above to start tracking your strategy.</p>
+                <button
+                  onClick={() => setFormOpen(true)}
                   className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#00dc82] text-[#070d1a] font-semibold text-sm hover:brightness-110 transition-all"
                 >
-                  See Today&apos;s Picks
-                </Link>
+                  <Plus size={14} /> Enter Trade
+                </button>
               </div>
             ) : (
-              <div className="space-y-3">
-                <p className="text-xs text-text-dim uppercase tracking-wider font-semibold mb-3">Trade History</p>
-                {trades.map((trade) => {
-                  const pick = trade.daily_picks;
-                  const gs = GRADE_CONFIG[pick?.grade ?? "B"] ?? GRADE_CONFIG["B"];
-                  const payout = trade.virtual_payout;
-                  const tradePnl = payout !== null
-                    ? payout - trade.virtual_stake
-                    : null;
-
-                  return (
-                    <div key={trade.id} className="rounded-2xl border border-border-subtle bg-card p-4">
-                      <div className="flex items-start gap-3">
-                        {pick?.grade && (
-                          <div className={`shrink-0 w-10 h-10 rounded-xl border ${gs.border} ${gs.bg} flex items-center justify-center`}>
-                            <span className={`font-black text-base ${gs.text}`}>{pick.grade}</span>
-                          </div>
-                        )}
-                        <div className="flex-1 min-w-0">
-                          <p className="text-white text-sm font-medium leading-snug truncate">{pick?.event ?? "Unknown pick"}</p>
-                          <div className="flex items-center gap-2 mt-1 flex-wrap">
-                            <span className="text-xs text-text-dim">{pick?.platform}</span>
-                            <span className="text-xs text-text-dim">·</span>
-                            <span className="text-xs text-text-dim">{trade.position} @ {trade.entry_price.toFixed(0)}¢</span>
-                            <span className="text-xs text-text-dim">·</span>
-                            <span className="text-xs text-text-dim">${trade.virtual_stake} staked</span>
-                          </div>
-                        </div>
-                        <div className="flex flex-col items-end gap-1.5 shrink-0">
-                          <ResultBadge result={trade.result} />
-                          {tradePnl !== null && (
-                            <span className={`text-xs font-bold ${tradePnl >= 0 ? "text-[#00dc82]" : "text-red-400"}`}>
-                              {tradePnl >= 0 ? "+" : ""}${tradePnl.toFixed(2)}
-                            </span>
-                          )}
-                          {trade.result === null && (
-                            <span className="text-xs text-text-dim">
-                              wins → ${(trade.virtual_stake * (100 / trade.entry_price)).toFixed(2)}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
+              <div className="space-y-2">
+                {trades.map((trade) => (
+                  <TradeCard key={trade.id} trade={trade} onUpdate={handleUpdate} onDelete={handleDelete} />
+                ))}
               </div>
             )}
           </>
         )}
-
-        {!loading && !error && !portfolio && (
-          <div className="text-center py-20 text-text-dim text-sm">No data available.</div>
-        )}
       </div>
-    </div>
-  );
-}
-
-function StatCard({ label, value, sub, highlight, positive, negative }: {
-  label: string; value: string; sub: string;
-  highlight?: boolean; positive?: boolean; negative?: boolean;
-}) {
-  const valueColor = positive ? "text-[#00dc82]" : negative ? "text-red-400" : highlight ? "text-white" : "text-white";
-  return (
-    <div className="rounded-2xl border border-border-subtle bg-card p-4">
-      <p className="text-xs text-text-dim uppercase tracking-wider mb-2">{label}</p>
-      <p className={`text-xl font-black ${valueColor}`}>{value}</p>
-      <p className="text-xs text-text-dim mt-1">{sub}</p>
     </div>
   );
 }
