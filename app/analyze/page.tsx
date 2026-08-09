@@ -25,7 +25,10 @@ import {
   Clock,
   Link2,
   Flame,
+  DollarSign,
+  Calculator,
 } from "lucide-react";
+import { calcKelly, kellyWager, useBankroll, type KellyFraction } from "@/hooks/useKelly";
 
 interface DetectedBet {
   platform: string;
@@ -676,6 +679,12 @@ function AnalyzePageInner() {
                   </div>
                 </div>
 
+                <AnalyzeKellyCard
+                  impliedProbability={result.detected.impliedProbability}
+                  trueOdds={result.analysis.trueOdds}
+                  recommendation={result.analysis.recommendation}
+                />
+
                 <div className="rounded-2xl border border-border-subtle bg-card p-6">
                   <h3 className="font-semibold text-sm text-text-dim uppercase tracking-widest mb-4">Detected Bet</h3>
                   <div className="grid grid-cols-2 gap-3">
@@ -856,6 +865,109 @@ function AnalyzePageInner() {
           </>
         )}
       </div>
+    </div>
+  );
+}
+
+function AnalyzeKellyCard({
+  impliedProbability,
+  trueOdds,
+  recommendation,
+}: {
+  impliedProbability: number;
+  trueOdds: number;
+  recommendation: string;
+}) {
+  const [bankroll, setBankroll] = useBankroll();
+  const [rawBankroll, setRawBankroll] = useState("");
+  const [fraction, setFraction] = useState<KellyFraction>("half");
+
+  useEffect(() => {
+    if (bankroll > 0 && rawBankroll === "") setRawBankroll(String(bankroll));
+  }, [bankroll, rawBankroll]);
+
+  if (recommendation === "HOLD") return null;
+
+  const kelly = calcKelly(impliedProbability, trueOdds, recommendation);
+  const wager = kellyWager(bankroll, kelly, fraction);
+  const entryP = recommendation === "FADE"
+    ? 1 - impliedProbability / 100
+    : impliedProbability / 100;
+  const profit = entryP > 0 ? wager * ((1 - entryP) / entryP) : 0;
+
+  const fractions: { key: KellyFraction; label: string }[] = [
+    { key: "quarter", label: "¼ Kelly" },
+    { key: "half", label: "½ Kelly" },
+    { key: "full", label: "Full Kelly" },
+  ];
+
+  return (
+    <div className="rounded-2xl border border-border-subtle bg-card p-6 space-y-4">
+      <div className="flex items-center gap-2">
+        <Calculator size={15} className="text-[#00dc82]" />
+        <h3 className="font-semibold text-sm text-text-dim uppercase tracking-widest">Kelly Bet Sizing</h3>
+      </div>
+
+      <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-white/5 border border-border-subtle">
+        <DollarSign size={14} className="text-text-dim shrink-0" />
+        <div className="flex-1">
+          <p className="text-[10px] text-text-dim uppercase tracking-wider mb-0.5 font-medium">Your Bankroll</p>
+          <input
+            type="number"
+            min="1"
+            value={rawBankroll}
+            onChange={(e) => {
+              setRawBankroll(e.target.value);
+              const n = parseFloat(e.target.value);
+              setBankroll(!isNaN(n) && n > 0 ? n : 0);
+            }}
+            placeholder="e.g. 500"
+            className="w-full bg-transparent text-white text-sm placeholder:text-text-dim outline-none"
+          />
+        </div>
+      </div>
+
+      {!kelly.hasEdge ? (
+        <p className="text-sm text-red-400">No positive edge detected — Kelly recommends skipping this bet.</p>
+      ) : (
+        <>
+          <div className="flex gap-1 p-0.5 rounded-lg bg-white/5 border border-white/10 w-fit">
+            {fractions.map(({ key, label }) => (
+              <button
+                key={key}
+                onClick={() => setFraction(key)}
+                className={`text-xs px-3 py-1 rounded-md transition-all font-medium ${
+                  fraction === key
+                    ? "bg-[#00dc82] text-[#070d1a]"
+                    : "text-text-dim hover:text-white"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {bankroll > 0 ? (
+            <div className="flex items-end justify-between">
+              <div>
+                <p className="text-4xl font-black text-[#00dc82]">
+                  ${wager < 1 ? wager.toFixed(2) : wager.toFixed(0)}
+                </p>
+                <p className="text-xs text-text-dim mt-1">recommended wager from ${bankroll.toLocaleString()}</p>
+              </div>
+              <div className="text-right text-sm space-y-1">
+                <p className="text-text-dim text-xs">If correct</p>
+                <p className="text-[#00dc82] font-bold">+${profit.toFixed(0)} profit</p>
+                <p className="text-text-dim text-xs">
+                  Raw Kelly: <span className="text-white">{(kelly.fraction * 100).toFixed(1)}%</span>
+                </p>
+              </div>
+            </div>
+          ) : (
+            <p className="text-sm text-text-dim">Enter your bankroll above to see the recommended wager amount.</p>
+          )}
+        </>
+      )}
     </div>
   );
 }

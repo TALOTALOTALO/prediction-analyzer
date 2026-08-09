@@ -22,9 +22,12 @@ import {
   X,
   ExternalLink,
   SlidersHorizontal,
+  DollarSign,
+  Calculator,
 } from "lucide-react";
 import { UserButton, SignUpButton, useUser } from "@clerk/nextjs";
 import MobileNav from "@/components/MobileNav";
+import { calcKelly, kellyWager, useBankroll, type KellyFraction } from "@/hooks/useKelly";
 
 const STAKE_OPTIONS = [10, 25, 50, 100];
 
@@ -146,14 +149,120 @@ function AdminControls({ pick, onUpdate }: { pick: Pick; onUpdate: (id: string, 
   );
 }
 
+function BankrollInput({ bankroll, onChange }: { bankroll: number; onChange: (v: number) => void }) {
+  const [raw, setRaw] = useState(bankroll > 0 ? String(bankroll) : "");
+
+  useEffect(() => {
+    if (bankroll > 0 && raw === "") setRaw(String(bankroll));
+  }, [bankroll, raw]);
+
+  return (
+    <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-white/5 border border-border-subtle">
+      <DollarSign size={14} className="text-text-dim shrink-0" />
+      <div className="flex-1">
+        <p className="text-[10px] text-text-dim uppercase tracking-wider mb-0.5 font-medium">Your Bankroll</p>
+        <input
+          type="number"
+          min="1"
+          value={raw}
+          onChange={(e) => {
+            setRaw(e.target.value);
+            const n = parseFloat(e.target.value);
+            onChange(!isNaN(n) && n > 0 ? n : 0);
+          }}
+          placeholder="e.g. 500"
+          className="w-full bg-transparent text-white text-sm placeholder:text-text-dim outline-none"
+        />
+      </div>
+      {bankroll > 0 && (
+        <div className="flex items-center gap-1 text-xs text-[#00dc82]">
+          <Calculator size={11} />
+          <span>Kelly ready</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function KellyPanel({ pick, bankroll }: { pick: Pick; bankroll: number }) {
+  const [fraction, setFraction] = useState<KellyFraction>("half");
+  const kelly = calcKelly(pick.implied_probability, pick.true_odds, pick.recommendation);
+
+  if (!kelly.hasEdge) {
+    return (
+      <div className="rounded-xl p-4 bg-white/5 border border-border-subtle">
+        <p className="text-[10px] text-text-dim uppercase tracking-wider mb-1.5 font-semibold">Kelly Bet Sizing</p>
+        <p className="text-xs text-red-400">No positive edge — Kelly suggests skipping this bet.</p>
+      </div>
+    );
+  }
+
+  const wager = kellyWager(bankroll, kelly, fraction);
+  const entryP = pick.recommendation === "FADE"
+    ? 1 - pick.implied_probability / 100
+    : pick.implied_probability / 100;
+  const profit = entryP > 0 ? wager * ((1 - entryP) / entryP) : 0;
+
+  const fractions: { key: KellyFraction; label: string }[] = [
+    { key: "quarter", label: "¼" },
+    { key: "half", label: "½" },
+    { key: "full", label: "Full" },
+  ];
+
+  return (
+    <div className="rounded-xl p-4 bg-white/5 border border-border-subtle space-y-3">
+      <div className="flex items-center justify-between">
+        <p className="text-[10px] text-text-dim uppercase tracking-wider font-semibold">Kelly Bet Sizing</p>
+        <div className="flex gap-1 p-0.5 rounded-lg bg-white/5 border border-white/10">
+          {fractions.map(({ key, label }) => (
+            <button
+              key={key}
+              onClick={() => setFraction(key)}
+              className={`text-xs px-2.5 py-0.5 rounded-md transition-all font-medium ${
+                fraction === key
+                  ? "bg-[#00dc82] text-[#070d1a]"
+                  : "text-text-dim hover:text-white"
+              }`}
+            >
+              {label} Kelly
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {bankroll > 0 ? (
+        <div className="flex items-end justify-between">
+          <div>
+            <p className="text-2xl font-black text-[#00dc82]">
+              ${wager < 1 ? wager.toFixed(2) : wager.toFixed(0)}
+            </p>
+            <p className="text-xs text-text-dim mt-0.5">
+              of ${bankroll.toLocaleString()} bankroll
+            </p>
+          </div>
+          <div className="text-right text-xs text-text-dim space-y-0.5">
+            <p>If correct: <span className="text-[#00dc82] font-semibold">+${profit.toFixed(0)}</span></p>
+            <p>Raw Kelly: <span className="text-white">{(kelly.fraction * 100).toFixed(1)}%</span></p>
+            <p>Edge: <span className="text-[#00dc82]">+{kelly.edge.toFixed(1)}pp</span></p>
+          </div>
+        </div>
+      ) : (
+        <p className="text-xs text-text-dim">Enter your bankroll above to see recommended wager.</p>
+      )}
+    </div>
+  );
+}
+
 function PickCard({
   pick,
   isAdmin,
   onUpdate,
+  bankroll,
 }: {
   pick: Pick;
   isAdmin: boolean;
   onUpdate: (id: string, result: Pick["result"]) => void;
+  bankroll: number;
 }) {
   const [expanded, setExpanded] = useState(false);
   const gs = GRADE_CONFIG[pick.grade] ?? GRADE_CONFIG["B"];
@@ -232,6 +341,8 @@ function PickCard({
               </span>
             </div>
           </div>
+
+          <KellyPanel pick={pick} bankroll={bankroll} />
 
           <div className="flex gap-4 text-xs flex-wrap">
             {pick.position && (
@@ -415,6 +526,9 @@ export default function PicksPage() {
   const [isFree, setIsFree] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Bankroll + Kelly
+  const [bankroll, setBankroll] = useBankroll();
 
   // Category filter state
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
@@ -734,6 +848,12 @@ export default function PicksPage() {
           </div>
         )}
 
+        {!loading && picks.length > 0 && !isFree && (
+          <div className="mb-6">
+            <BankrollInput bankroll={bankroll} onChange={setBankroll} />
+          </div>
+        )}
+
         {!loading && picks.length > 0 && (
           <div className="space-y-4">
             {record && <RecordBar record={record} />}
@@ -769,6 +889,7 @@ export default function PicksPage() {
                   pick={pick}
                   isAdmin={isAdmin}
                   onUpdate={handleResultUpdate}
+                  bankroll={bankroll}
                 />
               )
             )}
