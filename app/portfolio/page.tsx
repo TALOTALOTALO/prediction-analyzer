@@ -16,8 +16,8 @@ import {
   Trash2,
   TrendingUp,
   TrendingDown,
+  ChevronsUpDown,
 } from "lucide-react";
-import MobileNav from "@/components/MobileNav";
 
 interface ManualTrade {
   id: string;
@@ -137,12 +137,12 @@ function TradeCard({
             </p>
           </div>
           <div className="flex items-center gap-2 shrink-0">
-            {pnl !== null ? (
+            {pnl !== null && trade.result !== "void" ? (
               <span className={`text-sm font-bold ${pnlPositive ? "text-[#00dc82]" : "text-red-400"}`}>
                 {pnlPositive ? "+" : ""}${fmt(Math.abs(pnl))}
               </span>
             ) : (
-              <ResultBadge result={null} />
+              <ResultBadge result={trade.result} />
             )}
             {expanded ? <ChevronUp size={15} className="text-text-dim" /> : <ChevronDown size={15} className="text-text-dim" />}
           </div>
@@ -300,8 +300,6 @@ export default function PortfolioPage() {
 
   return (
     <div className="min-h-screen bg-bg">
-      <MobileNav activeTab="picks" />
-
       <nav className="border-b border-border-subtle px-6 py-4">
         <div className="max-w-3xl mx-auto flex items-center justify-between">
           <Link href="/picks" className="flex items-center gap-2 text-text-dim hover:text-white transition-colors">
@@ -388,14 +386,17 @@ export default function PortfolioPage() {
                     {/* Platform */}
                     <div>
                       <label className="text-xs text-text-dim uppercase tracking-wider font-medium block mb-1.5">Platform</label>
-                      <select
-                        value={form.platform}
-                        onChange={(e) => setForm((f) => ({ ...f, platform: e.target.value }))}
-                        className="w-full bg-white/5 border border-border-subtle rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-[#00dc82]/50 transition-colors appearance-none"
-                      >
-                        <option value="">Optional</option>
-                        {PLATFORMS.map((p) => <option key={p} value={p}>{p}</option>)}
-                      </select>
+                      <div className="relative">
+                        <select
+                          value={form.platform}
+                          onChange={(e) => setForm((f) => ({ ...f, platform: e.target.value }))}
+                          className="w-full bg-white/5 border border-border-subtle rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-[#00dc82]/50 transition-colors appearance-none pr-8"
+                        >
+                          <option value="">Optional</option>
+                          {PLATFORMS.map((p) => <option key={p} value={p}>{p}</option>)}
+                        </select>
+                        <ChevronsUpDown size={13} className="absolute right-3 top-1/2 -translate-y-1/2 text-text-dim pointer-events-none" />
+                      </div>
                     </div>
 
                     {/* Position */}
