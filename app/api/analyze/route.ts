@@ -22,7 +22,7 @@ async function checkRateLimit(userId: string): Promise<boolean> {
   return (count ?? 0) < RATE_LIMIT;
 }
 
-async function fetchNewsContext(query: string): Promise<string> {
+async function tavilySearch(query: string): Promise<string> {
   if (!process.env.TAVILY_API_KEY || !query) return "";
   try {
     const res = await fetch("https://api.tavily.com/search", {
@@ -30,26 +30,33 @@ async function fetchNewsContext(query: string): Promise<string> {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         api_key: process.env.TAVILY_API_KEY,
-        query: `${query} prediction market odds news`,
-        search_depth: "basic",
-        max_results: 5,
+        query,
+        search_depth: "advanced",
+        max_results: 8,
         include_answer: true,
       }),
     });
     if (!res.ok) return "";
     const data = await res.json();
-
     const snippets = (data.results ?? [])
-      .map((r: { title: string; content: string; url: string }) =>
-        `- ${r.title}: ${r.content.slice(0, 300)}`
-      )
+      .map((r: { title: string; content: string }) => `- ${r.title}: ${r.content.slice(0, 400)}`)
       .join("\n");
-
     const answer = data.answer ? `Summary: ${data.answer}\n\n` : "";
-    return `${answer}Recent news and context:\n${snippets}`;
+    return `${answer}${snippets}`;
   } catch {
     return "";
   }
+}
+
+async function fetchNewsContext(event: string, category?: string): Promise<string> {
+  if (!event) return "";
+  const today = new Date().toISOString().split("T")[0];
+  const [specific, breaking] = await Promise.all([
+    tavilySearch(`${event} prediction market odds news`),
+    tavilySearch(`${category ?? "news"} breaking news today ${today}`),
+  ]);
+  const parts = [specific && `=== MARKET-SPECIFIC CONTEXT ===\n${specific}`, breaking && `=== BREAKING NEWS ===\n${breaking}`].filter(Boolean);
+  return parts.join("\n\n");
 }
 
 export async function POST(req: NextRequest) {
@@ -254,8 +261,8 @@ Now extract all bet details and return ONLY a JSON object with this exact struct
       return NextResponse.json({ error: "Failed to parse bet details from image" }, { status: 422 });
     }
 
-    // Fetch live news context for the event — runs in parallel with nothing, ~500ms
-    const newsContext = await fetchNewsContext(detected.event as string);
+    // Fetch live news context for the event — two parallel Tavily searches
+    const newsContext = await fetchNewsContext(detected.event as string, detected.category as string | undefined);
 
     // Call 2: Analysis — grade the bet using detected details + live news context
     const analysisPrompt = `You are an expert prediction market analyst with access to real-time information. Analyze this bet and return a detailed assessment.

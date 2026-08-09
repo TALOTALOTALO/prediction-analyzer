@@ -18,7 +18,7 @@ async function checkRateLimit(userId: string): Promise<boolean> {
   return (count ?? 0) < RATE_LIMIT;
 }
 
-async function fetchNewsContext(query: string): Promise<string> {
+async function tavilySearch(query: string): Promise<string> {
   if (!process.env.TAVILY_API_KEY || !query) return "";
   try {
     const res = await fetch("https://api.tavily.com/search", {
@@ -26,22 +26,33 @@ async function fetchNewsContext(query: string): Promise<string> {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         api_key: process.env.TAVILY_API_KEY,
-        query: `${query} prediction market odds news`,
-        search_depth: "basic",
-        max_results: 5,
+        query,
+        search_depth: "advanced",
+        max_results: 8,
         include_answer: true,
       }),
     });
     if (!res.ok) return "";
     const data = await res.json();
     const snippets = (data.results ?? [])
-      .map((r: { title: string; content: string }) => `- ${r.title}: ${r.content.slice(0, 300)}`)
+      .map((r: { title: string; content: string }) => `- ${r.title}: ${r.content.slice(0, 400)}`)
       .join("\n");
     const answer = data.answer ? `Summary: ${data.answer}\n\n` : "";
-    return `${answer}Recent news and context:\n${snippets}`;
+    return `${answer}${snippets}`;
   } catch {
     return "";
   }
+}
+
+async function fetchNewsContext(event: string, category?: string): Promise<string> {
+  if (!event) return "";
+  const today = new Date().toISOString().split("T")[0];
+  const [specific, breaking] = await Promise.all([
+    tavilySearch(`${event} prediction market odds news`),
+    tavilySearch(`${category ?? "news"} breaking news today ${today}`),
+  ]);
+  const parts = [specific && `=== MARKET-SPECIFIC CONTEXT ===\n${specific}`, breaking && `=== BREAKING NEWS ===\n${breaking}`].filter(Boolean);
+  return parts.join("\n\n");
 }
 
 function kalshiSign(privateKeyPem: string, timestampMs: number, method: string, path: string): string {
@@ -294,7 +305,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const newsContext = await fetchNewsContext(marketData.event);
+    const newsContext = await fetchNewsContext(marketData.event, marketData.category);
 
     const detected = {
       platform: marketData.platform,
@@ -316,6 +327,12 @@ Bet details fetched directly from the ${marketData.platform} API:
 ${JSON.stringify(detected, null, 2)}
 
 ${newsContext ? `LIVE CONTEXT (use this to inform your probability estimate — this is current information as of today):\n${newsContext}\n` : ""}
+
+CRITICAL RULES FOR ANALYSIS QUALITY:
+- Every claim in bullCase, bearCase, keyRisks, summary, entryStrategy, and exitStrategy MUST be grounded in verifiable facts from the live context above or well-established, timeless logic. Do NOT invent scenarios.
+- Your training data has a knowledge cutoff and may be months out of date. If you cite a specific company, product, person, or event as a risk or catalyst, you must be confident it is still current and relevant as of today — if in doubt, describe the structural/logical risk instead (e.g. "a surprise competitive release" rather than naming a specific product that may no longer exist).
+- Do NOT reference products, services, or events that may have shut down, been discontinued, or changed since your training cutoff unless the live context above explicitly confirms they are still active.
+- Prefer grounding analysis in the live news context provided; treat your training data as background knowledge only.
 
 Return ONLY a JSON object with this exact structure (no markdown, no explanation):
 {
