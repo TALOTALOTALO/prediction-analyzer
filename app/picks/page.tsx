@@ -64,19 +64,23 @@ interface WinRecord {
   total: number;
 }
 
-function getMarketUrl(platform: string, marketId: string | null): string | null {
-  if (!marketId) return null;
+function getMarketUrl(platform: string, marketId: string | null, eventTitle?: string): string {
+  const encoded = eventTitle ? encodeURIComponent(eventTitle) : "";
   if (platform === "Kalshi") {
-    // Ticker format: KXSERIES-DATE... or KXSERIES-DATE...-OUTCOME
-    // Link to the series page (e.g. kalshi.com/markets/kxeculpgame)
-    const series = marketId.split("-")[0].toLowerCase();
-    return series ? `https://kalshi.com/markets/${series}` : null;
+    if (marketId) {
+      const series = marketId.split("-")[0].toLowerCase();
+      if (series) return `https://kalshi.com/markets/${series}`;
+    }
+    return encoded ? `https://kalshi.com/explore?s=${encoded}` : "https://kalshi.com/explore";
   }
   if (platform === "Polymarket") {
-    // marketId is stored as the market slug
-    return `https://polymarket.com/event/${marketId}`;
+    if (marketId) return `https://polymarket.com/event/${marketId}`;
+    return encoded ? `https://polymarket.com/markets?s=${encoded}` : "https://polymarket.com/markets";
   }
-  return null;
+  if (platform === "PredictIt") {
+    return "https://www.predictit.org/markets";
+  }
+  return "#";
 }
 
 const GRADE_CONFIG: Record<string, { border: string; text: string; bg: string; glow: string }> = {
@@ -288,22 +292,17 @@ function PickCard({
               {pick.category && (
                 <span className="text-xs px-2 py-0.5 rounded-full bg-white/5 text-text-dim">{pick.category}</span>
               )}
-              {pick.platform && (() => {
-                const url = getMarketUrl(pick.platform, pick.market_id);
-                return url ? (
-                  <a
-                    href={url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={(e) => e.stopPropagation()}
-                    className="flex items-center gap-1 text-xs text-text-dim hover:text-white transition-colors"
-                  >
-                    {pick.platform} <ExternalLink size={10} />
-                  </a>
-                ) : (
-                  <span className="text-xs text-text-dim">{pick.platform}</span>
-                );
-              })()}
+              {pick.platform && (
+                <a
+                  href={getMarketUrl(pick.platform, pick.market_id, pick.event)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  className="flex items-center gap-1 text-xs text-text-dim hover:text-white transition-colors"
+                >
+                  {pick.platform} <ExternalLink size={10} />
+                </a>
+              )}
               <ResultBadge result={pick.result} />
             </div>
             <p className="text-white font-semibold text-sm leading-snug mb-1">{pick.event}</p>
@@ -329,6 +328,18 @@ function PickCard({
               <span className="text-xs text-text-dim font-medium">Admin</span>
               <AdminControls pick={pick} onUpdate={onUpdate} />
             </div>
+          )}
+
+          {pick.platform && pick.result === null && (
+            <a
+              href={getMarketUrl(pick.platform, pick.market_id, pick.event)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl border border-[#00dc82]/30 text-[#00dc82] text-sm font-semibold hover:bg-[#00dc82]/10 transition-all"
+            >
+              <ExternalLink size={14} />
+              Place trade on {pick.platform}
+            </a>
           )}
 
           <div className="space-y-2">
@@ -419,21 +430,16 @@ function FreePickCard({
 
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1 flex-wrap">
-              {pick.platform && (() => {
-                const url = getMarketUrl(pick.platform, pick.market_id);
-                return url ? (
-                  <a
-                    href={url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-1 text-xs text-text-dim hover:text-white transition-colors"
-                  >
-                    {pick.platform} <ExternalLink size={10} />
-                  </a>
-                ) : (
-                  <span className="text-xs text-text-dim">{pick.platform}</span>
-                );
-              })()}
+              {pick.platform && (
+                <a
+                  href={getMarketUrl(pick.platform, pick.market_id, pick.event)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1 text-xs text-text-dim hover:text-white transition-colors"
+                >
+                  {pick.platform} <ExternalLink size={10} />
+                </a>
+              )}
               <ResultBadge result={pick.result} />
             </div>
             <p className="text-white font-semibold text-sm leading-snug mb-1">{pick.event}</p>
