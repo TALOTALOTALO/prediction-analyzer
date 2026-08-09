@@ -265,6 +265,12 @@ ${JSON.stringify(detected, null, 2)}
 
 ${newsContext ? `LIVE CONTEXT (use this to inform your probability estimate — this is current information as of today):\n${newsContext}\n` : ""}
 
+CRITICAL RULES FOR ANALYSIS QUALITY:
+- Every claim in bullCase, bearCase, keyRisks, summary, entryStrategy, and exitStrategy MUST be grounded in verifiable facts from the live context above or well-established, timeless logic. Do NOT invent scenarios.
+- Your training data has a knowledge cutoff and may be months out of date. If you cite a specific company, product, person, or event as a risk or catalyst, you must be confident it is still current and relevant as of today — if in doubt, describe the structural/logical risk instead (e.g. "a surprise competitive release" rather than naming a specific product that may no longer exist or be relevant).
+- Do NOT reference products, services, or events that may have shut down, been discontinued, or changed since your training cutoff unless the live context above explicitly confirms they are still active.
+- Prefer grounding analysis in the live news context provided; treat your training data as background knowledge only.
+
 Return ONLY a JSON object with this exact structure (no markdown, no explanation):
 {
   "grade": "string (S, A, B, C, D, or F)",

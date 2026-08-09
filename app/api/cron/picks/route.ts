@@ -163,6 +163,12 @@ ${marketIntel}
 
 Analyze the real markets above. Cross-reference their current prices with the news context to identify genuine mispricings where the market probability diverges significantly from true probability. Only include picks with grade A or better — genuine edge plays backed by specific evidence.
 
+CRITICAL RULES FOR ANALYSIS QUALITY:
+- Every claim in bullCase, bearCase, keyRisks, and summary MUST be grounded in the provided live data or Tavily research above. Do NOT invent risks or cite companies, products, events, or people that are not mentioned in the data provided.
+- Your training data has a knowledge cutoff and may be months out of date. Treat any claim from your training data as potentially stale — only assert things you can verify from the Tavily context above.
+- Do NOT reference products, companies, or events that may have shut down, pivoted, or changed since your training cutoff unless the Tavily research explicitly confirms they are still relevant today.
+- If you cannot find a specific, current bear case in the provided data, describe the structural/logical bear case (e.g. "resolution criteria may be interpreted differently") rather than citing a potentially-outdated real-world actor.
+
 Return ONLY a valid JSON array (no markdown, no explanation). Include between 3 and 6 picks:
 [
   {
