@@ -175,7 +175,8 @@ export function formatMarketsForClaude(markets: LiveMarket[]): string {
         const vol = m.volume ? ` | Vol: $${Math.round(m.volume).toLocaleString()}` : "";
         const liq = m.liquidity ? ` | Liq: $${Math.round(m.liquidity).toLocaleString()}` : "";
         const closes = m.closesAt ? ` | Closes: ${m.closesAt.slice(0, 10)}` : "";
-        return `  • ${m.question}${contract}\n    ${price}${vol}${liq}${closes}`;
+        const id = m.marketId ? ` | ID: ${m.marketId}` : "";
+        return `  • ${m.question}${contract}\n    ${price}${vol}${liq}${closes}${id}`;
       });
       return `=== ${platform.toUpperCase()} ===\n${lines.join("\n")}`;
     })
