@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { getSupabase } from "@/lib/supabase";
 
-const STARTING_BALANCE = 1000;
+const STARTING_BALANCE = 10000;
 const VALID_STAKES = [10, 25, 50, 100];
 
 export async function GET() {
