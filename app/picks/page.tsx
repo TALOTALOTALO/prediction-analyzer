@@ -54,6 +54,7 @@ interface Pick {
   confidence_level: string;
   market_id: string | null;
   result: "won" | "lost" | "void" | null;
+  [key: string]: unknown;
 }
 
 interface WinRecord {
@@ -111,8 +112,9 @@ function ResultBadge({ result }: { result: Pick["result"] }) {
   );
 }
 
-function AdminControls({ pick, onUpdate }: { pick: Pick; onUpdate: (id: string, result: Pick["result"]) => void }) {
+function AdminControls({ pick, onUpdate, onRefresh }: { pick: Pick; onUpdate: (id: string, result: Pick["result"]) => void; onRefresh: (id: string, data: Partial<Pick>) => void }) {
   const [saving, setSaving] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   const mark = async (result: "won" | "lost" | "void" | null) => {
     setSaving(true);
@@ -128,6 +130,30 @@ function AdminControls({ pick, onUpdate }: { pick: Pick; onUpdate: (id: string, 
     }
   };
 
+  const refresh = async () => {
+    setRefreshing(true);
+    try {
+      const res = await fetch(`/api/picks/${pick.id}/refresh`, { method: "POST" });
+      const data = await res.json();
+      if (res.ok && data.updated) {
+        const u = data.updated;
+        onRefresh(pick.id, {
+          summary: u.summary,
+          bull_case: u.bullCase,
+          bear_case: u.bearCase,
+          key_risks: u.keyRisks,
+          recommendation_reason: u.recommendationReason,
+          true_odds: u.trueOdds,
+          edge_score: u.edgeScore,
+          grade: u.grade,
+          confidence_level: u.confidenceLevel,
+        });
+      }
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
   return (
     <div className="flex items-center gap-1.5 flex-wrap">
       <span className="text-xs text-text-dim mr-1">Mark:</span>
@@ -135,7 +161,7 @@ function AdminControls({ pick, onUpdate }: { pick: Pick; onUpdate: (id: string, 
         <button
           key={r}
           onClick={() => mark(pick.result === r ? null : r)}
-          disabled={saving}
+          disabled={saving || refreshing}
           className={`text-xs px-2.5 py-1 rounded-full border transition-all disabled:opacity-50 ${
             pick.result === r
               ? r === "won"
@@ -149,6 +175,13 @@ function AdminControls({ pick, onUpdate }: { pick: Pick; onUpdate: (id: string, 
           {r.charAt(0).toUpperCase() + r.slice(1)}
         </button>
       ))}
+      <button
+        onClick={refresh}
+        disabled={saving || refreshing}
+        className="text-xs px-2.5 py-1 rounded-full border border-blue-500/30 text-blue-400 hover:border-blue-400 hover:text-blue-300 transition-all disabled:opacity-50 ml-1"
+      >
+        {refreshing ? "Refreshing…" : "↻ Refresh"}
+      </button>
     </div>
   );
 }
@@ -262,11 +295,13 @@ function PickCard({
   pick,
   isAdmin,
   onUpdate,
+  onRefresh,
   bankroll,
 }: {
   pick: Pick;
   isAdmin: boolean;
   onUpdate: (id: string, result: Pick["result"]) => void;
+  onRefresh: (id: string, data: Partial<Pick>) => void;
   bankroll: number;
 }) {
   const [expanded, setExpanded] = useState(false);
@@ -326,7 +361,7 @@ function PickCard({
           {isAdmin && (
             <div className="flex items-center gap-3 p-3 rounded-xl bg-white/5 border border-white/10">
               <span className="text-xs text-text-dim font-medium">Admin</span>
-              <AdminControls pick={pick} onUpdate={onUpdate} />
+              <AdminControls pick={pick} onUpdate={onUpdate} onRefresh={onRefresh} />
             </div>
           )}
 
@@ -600,6 +635,10 @@ export default function PicksPage() {
       .then((r) => r.json())
       .then((d) => { if (d.record) setRecord(d.record); })
       .catch(() => {});
+  }, []);
+
+  const handleRefresh = useCallback((id: string, data: Partial<Pick>) => {
+    setPicks((prev) => prev.map((p) => p.id === id ? { ...p, ...data } : p));
   }, []);
 
   const saveFilter = async () => {
@@ -896,6 +935,7 @@ export default function PicksPage() {
                   pick={pick}
                   isAdmin={isAdmin}
                   onUpdate={handleResultUpdate}
+                  onRefresh={handleRefresh}
                   bankroll={bankroll}
                 />
               )
