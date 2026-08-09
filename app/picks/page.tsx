@@ -154,7 +154,8 @@ function BankrollInput({ bankroll, onChange }: { bankroll: number; onChange: (v:
 
   useEffect(() => {
     if (bankroll > 0 && raw === "") setRaw(String(bankroll));
-  }, [bankroll, raw]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bankroll]);
 
   return (
     <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-white/5 border border-border-subtle">
@@ -241,7 +242,7 @@ function KellyPanel({ pick, bankroll }: { pick: Pick; bankroll: number }) {
             </p>
           </div>
           <div className="text-right text-xs text-text-dim space-y-0.5">
-            <p>If correct: <span className="text-[#00dc82] font-semibold">+${profit.toFixed(0)}</span></p>
+            <p>If correct: <span className="text-[#00dc82] font-semibold">+${profit < 1 ? profit.toFixed(2) : profit.toFixed(0)}</span></p>
             <p>Raw Kelly: <span className="text-white">{(kelly.fraction * 100).toFixed(1)}%</span></p>
             <p>Edge: <span className="text-[#00dc82]">+{kelly.edge.toFixed(1)}pp</span></p>
           </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 
 export type KellyFraction = "quarter" | "half" | "full";
 
@@ -55,11 +55,11 @@ export function useBankroll(): [number, (v: number) => void] {
     }
   }, []);
 
-  const setBankroll = (v: number) => {
+  const setBankroll = useCallback((v: number) => {
     setBankrollState(v);
     if (v > 0) localStorage.setItem("fademe_bankroll", String(v));
     else localStorage.removeItem("fademe_bankroll");
-  };
+  }, []);
 
   return [bankroll, setBankroll];
 }

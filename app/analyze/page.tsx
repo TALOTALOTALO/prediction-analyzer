@@ -884,7 +884,8 @@ function AnalyzeKellyCard({
 
   useEffect(() => {
     if (bankroll > 0 && rawBankroll === "") setRawBankroll(String(bankroll));
-  }, [bankroll, rawBankroll]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bankroll]);
 
   if (recommendation === "HOLD") return null;
 
@@ -957,7 +958,7 @@ function AnalyzeKellyCard({
               </div>
               <div className="text-right text-sm space-y-1">
                 <p className="text-text-dim text-xs">If correct</p>
-                <p className="text-[#00dc82] font-bold">+${profit.toFixed(0)} profit</p>
+                <p className="text-[#00dc82] font-bold">+${profit < 1 ? profit.toFixed(2) : profit.toFixed(0)} profit</p>
                 <p className="text-text-dim text-xs">
                   Raw Kelly: <span className="text-white">{(kelly.fraction * 100).toFixed(1)}%</span>
                 </p>
