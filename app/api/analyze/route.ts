@@ -233,7 +233,7 @@ Now extract all bet details and return ONLY a JSON object with this exact struct
   "stake": "string (amount being risked, or 'unknown')",
   "potentialPayout": "string (potential return, or 'unknown')",
   "expirationDate": "string (when the bet resolves, or 'unknown')",
-  "category": "string (e.g. Politics, Sports, Finance, Economics, Entertainment, Crypto, Other)",
+  "category": "string (e.g. Elections, Politics, Sports, Culture, Crypto, Commodities, Climate, Economics, Mentions, Finance, Tech & Science)",
   "rawText": "string (any other relevant text visible in the screenshot)",
   "marketId": "string or null (Kalshi ticker e.g. KXBTC-24DEC, or Polymarket condition ID if visible in the URL or page — null if not visible)"
 }`,

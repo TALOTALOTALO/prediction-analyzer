@@ -171,7 +171,7 @@ Return ONLY a valid JSON array (no markdown, no explanation). Include between 3 
     "position": "string (YES, NO, or specific option)",
     "odds": "string (e.g. 65¢, +200, 65%)",
     "impliedProbability": number,
-    "category": "string (Politics, Sports, Finance, Economics, Entertainment, Other)",
+    "category": "string (Elections, Politics, Sports, Culture, Crypto, Commodities, Climate, Economics, Mentions, Finance, Tech & Science)",
     "grade": "string (S or A only)",
     "gradeLabel": "string (e.g. 'Exceptional Edge', 'Strong Value')",
     "edgeScore": number,
