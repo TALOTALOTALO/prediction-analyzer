@@ -83,45 +83,42 @@ export async function GET(req: NextRequest) {
 
   let resolved = 0;
 
-  for (const pick of pending) {
-    const marketId = pick.market_id as string;
-    const platform = pick.platform as string;
+  await Promise.allSettled(
+    pending.map(async (pick) => {
+      const marketId = pick.market_id as string;
+      const platform = pick.platform as string;
 
-    let marketResult: "yes" | "no" | null = null;
+      let marketResult: "yes" | "no" | null = null;
+      if (platform === "Kalshi") {
+        marketResult = await checkKalshiResult(marketId);
+      } else if (platform === "Polymarket") {
+        marketResult = await checkPolymarketResult(marketId);
+      }
+      if (!marketResult) return;
 
-    if (platform === "Kalshi") {
-      marketResult = await checkKalshiResult(marketId);
-    } else if (platform === "Polymarket") {
-      marketResult = await checkPolymarketResult(marketId);
-    }
+      const rec = (pick.recommendation as string)?.toUpperCase();
+      const pos = (pick.position as string)?.toUpperCase();
 
-    if (!marketResult) continue;
+      let result: "won" | "lost" | null = null;
+      if (rec === "BUY") {
+        result = (pos === "NO" ? marketResult === "no" : marketResult === "yes") ? "won" : "lost";
+      } else if (rec === "FADE") {
+        result = (pos === "NO" ? marketResult === "yes" : marketResult === "no") ? "won" : "lost";
+      }
+      if (!result) return;
 
-    const rec = (pick.recommendation as string)?.toUpperCase();
-    const pos = (pick.position as string)?.toUpperCase();
+      const { error: updateErr } = await getSupabase()
+        .from("daily_picks")
+        .update({ result })
+        .eq("id", pick.id);
 
-    // BUY YES → won if resolves yes; FADE YES → won if resolves no
-    // BUY NO → won if resolves no;  FADE NO → won if resolves yes
-    let result: "won" | "lost" | null = null;
-    if (rec === "BUY") {
-      result = (pos === "NO" ? marketResult === "no" : marketResult === "yes") ? "won" : "lost";
-    } else if (rec === "FADE") {
-      result = (pos === "NO" ? marketResult === "yes" : marketResult === "no") ? "won" : "lost";
-    }
-
-    if (!result) continue;
-
-    const { error: updateErr } = await getSupabase()
-      .from("daily_picks")
-      .update({ result })
-      .eq("id", pick.id);
-
-    if (updateErr) {
-      console.error(`Failed to resolve pick ${pick.id}:`, updateErr);
-    } else {
-      resolved++;
-    }
-  }
+      if (updateErr) {
+        console.error(`Failed to resolve pick ${pick.id}:`, updateErr);
+      } else {
+        resolved++;
+      }
+    })
+  );
 
   return NextResponse.json({ message: "Resolution complete", resolved, checked: pending.length });
 }

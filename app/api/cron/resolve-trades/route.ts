@@ -92,40 +92,39 @@ export async function GET(req: NextRequest) {
 
   let resolved = 0;
 
-  for (const trade of pending) {
-    const pickRaw = trade.daily_picks;
-    const pick = (Array.isArray(pickRaw) ? pickRaw[0] ?? null : pickRaw) as { platform: string; market_id: string | null } | null;
-    if (!pick?.market_id) continue;
+  await Promise.allSettled(
+    pending.map(async (trade) => {
+      const pickRaw = trade.daily_picks;
+      const pick = (Array.isArray(pickRaw) ? pickRaw[0] ?? null : pickRaw) as { platform: string; market_id: string | null } | null;
+      if (!pick?.market_id) return;
 
-    let marketResult: "yes" | "no" | null = null;
+      let marketResult: "yes" | "no" | null = null;
+      if (pick.platform === "Kalshi") {
+        marketResult = await checkKalshiResult(pick.market_id);
+      } else if (pick.platform === "Polymarket") {
+        marketResult = await checkPolymarketResult(pick.market_id);
+      }
+      if (!marketResult) return;
 
-    if (pick.platform === "Kalshi") {
-      marketResult = await checkKalshiResult(pick.market_id);
-    } else if (pick.platform === "Polymarket") {
-      marketResult = await checkPolymarketResult(pick.market_id);
-    }
+      const tradeWon =
+        (trade.position === "YES" && marketResult === "yes") ||
+        (trade.position === "NO" && marketResult === "no");
 
-    if (!marketResult) continue;
+      const tradeResult: "won" | "lost" = tradeWon ? "won" : "lost";
+      const virtualPayout = calculatePayout(Number(trade.virtual_stake), Number(trade.entry_price), tradeResult);
 
-    // Determine win/loss based on trade position vs market result
-    const tradeWon =
-      (trade.position === "YES" && marketResult === "yes") ||
-      (trade.position === "NO" && marketResult === "no");
+      const { error: updateErr } = await getSupabase()
+        .from("paper_trades")
+        .update({ result: tradeResult, virtual_payout: virtualPayout })
+        .eq("id", trade.id);
 
-    const tradeResult: "won" | "lost" = tradeWon ? "won" : "lost";
-    const virtualPayout = calculatePayout(Number(trade.virtual_stake), Number(trade.entry_price), tradeResult);
-
-    const { error: updateErr } = await getSupabase()
-      .from("paper_trades")
-      .update({ result: tradeResult, virtual_payout: virtualPayout })
-      .eq("id", trade.id);
-
-    if (updateErr) {
-      console.error(`Failed to resolve trade ${trade.id}:`, updateErr);
-    } else {
-      resolved++;
-    }
-  }
+      if (updateErr) {
+        console.error(`Failed to resolve trade ${trade.id}:`, updateErr);
+      } else {
+        resolved++;
+      }
+    })
+  );
 
   return NextResponse.json({ message: "Resolution complete", resolved, checked: pending.length });
 }

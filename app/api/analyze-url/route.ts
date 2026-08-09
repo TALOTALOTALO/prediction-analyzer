@@ -149,7 +149,7 @@ async function fetchPolymarketMarket(slug: string): Promise<MarketData | null> {
       impliedProbability,
       expirationDate: m.endDate ? new Date(m.endDate as string).toLocaleDateString("en-US") : "unknown",
       category: "Other",
-      marketId: (m.conditionId as string) ?? slug,
+      marketId: (m.conditionId as string) ?? null,
       rawText: `Volume: $${m.volume ?? "?"}. Liquidity: $${m.liquidity ?? "?"}. Active: ${m.active ?? "?"}.`,
     };
   } catch {
@@ -186,6 +186,27 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Service temporarily unavailable" }, { status: 503 });
   }
 
+  // Parse body before claiming the free slot — prevents burning it on a bad request
+  let url: string;
+  try {
+    const body = await req.json();
+    url = body.url;
+  } catch {
+    return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
+  }
+
+  if (!url || typeof url !== "string") {
+    return NextResponse.json({ error: "Missing url" }, { status: 400 });
+  }
+
+  const parsed = parseMarketUrl(url.trim());
+  if (!parsed) {
+    return NextResponse.json(
+      { error: "Unsupported URL. Paste a Kalshi (kalshi.com/markets/...) or Polymarket (polymarket.com/event/...) link." },
+      { status: 400 }
+    );
+  }
+
   if (!isActive) {
     const { error: claimErr } = await getSupabase()
       .from("free_analysis_claims")
@@ -210,20 +231,6 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const body = await req.json();
-    const { url } = body as { url: string };
-
-    if (!url || typeof url !== "string") {
-      return NextResponse.json({ error: "Missing url" }, { status: 400 });
-    }
-
-    const parsed = parseMarketUrl(url.trim());
-    if (!parsed) {
-      return NextResponse.json(
-        { error: "Unsupported URL. Paste a Kalshi (kalshi.com/markets/...) or Polymarket (polymarket.com/event/...) link." },
-        { status: 400 }
-      );
-    }
 
     let marketData: MarketData | null = null;
     if (parsed.platform === "Kalshi") {

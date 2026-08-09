@@ -177,11 +177,12 @@ Return ONLY a valid JSON array (no markdown, no explanation). Include between 3 
     "bearCase": "string",
     "keyRisks": ["string", "string", "string"],
     "marketInefficiency": "string",
-    "confidenceLevel": "string (High or Very High)"
+    "confidenceLevel": "string (High or Very High)",
+    "marketId": "string or null (Kalshi ticker exactly as it appears in the market data e.g. KXBTC-25DEC31-B50000, or Polymarket conditionId hex string — null if not available)"
   }
 ]
 
-Order by edge score descending. Be rigorous — if fewer than 3 strong picks exist, return what you have.`,
+Order by edge score descending. Be rigorous — if fewer than 3 strong picks exist, return what you have. Always include marketId when the market data contains a ticker or conditionId.`,
     }],
   });
 

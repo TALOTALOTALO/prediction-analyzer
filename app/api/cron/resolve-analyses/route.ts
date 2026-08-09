@@ -84,48 +84,42 @@ export async function GET(req: NextRequest) {
 
   let resolved = 0;
 
-  for (const analysis of pending) {
-    const marketId = analysis.market_id as string;
-    const platform = analysis.platform as string;
+  await Promise.allSettled(
+    pending.map(async (analysis) => {
+      const marketId = analysis.market_id as string;
+      const platform = analysis.platform as string;
 
-    let marketResult: "yes" | "no" | null = null;
+      let marketResult: "yes" | "no" | null = null;
+      if (platform === "Kalshi") {
+        marketResult = await checkKalshiResult(marketId);
+      } else if (platform === "Polymarket") {
+        marketResult = await checkPolymarketResult(marketId);
+      }
+      if (!marketResult) return;
 
-    if (platform === "Kalshi") {
-      marketResult = await checkKalshiResult(marketId);
-    } else if (platform === "Polymarket") {
-      marketResult = await checkPolymarketResult(marketId);
-    }
+      const rec = (analysis.recommendation as string)?.toUpperCase();
+      const pos = (analysis.position as string)?.toUpperCase();
 
-    if (!marketResult) continue;
+      let outcome: "correct" | "incorrect" | null = null;
+      if (rec === "BUY") {
+        outcome = (pos === "NO" ? marketResult === "no" : marketResult === "yes") ? "correct" : "incorrect";
+      } else if (rec === "FADE") {
+        outcome = (pos === "NO" ? marketResult === "yes" : marketResult === "no") ? "correct" : "incorrect";
+      }
+      if (!outcome) return;
 
-    const rec = (analysis.recommendation as string)?.toUpperCase();
-    const pos = (analysis.position as string)?.toUpperCase();
+      const { error: updateErr } = await getSupabase()
+        .from("analyses")
+        .update({ outcome })
+        .eq("id", analysis.id);
 
-    // Determine if prediction was correct:
-    // BUY on YES position = correct if market resolves yes
-    // FADE on YES position = correct if market resolves no
-    // BUY on NO position = correct if market resolves no
-    // FADE on NO position = correct if market resolves yes
-    let outcome: "correct" | "incorrect" | null = null;
-    if (rec === "BUY") {
-      outcome = (pos === "NO" ? marketResult === "no" : marketResult === "yes") ? "correct" : "incorrect";
-    } else if (rec === "FADE") {
-      outcome = (pos === "NO" ? marketResult === "yes" : marketResult === "no") ? "correct" : "incorrect";
-    }
-
-    if (!outcome) continue;
-
-    const { error: updateErr } = await getSupabase()
-      .from("analyses")
-      .update({ outcome })
-      .eq("id", analysis.id);
-
-    if (updateErr) {
-      console.error(`Failed to resolve analysis ${analysis.id}:`, updateErr);
-    } else {
-      resolved++;
-    }
-  }
+      if (updateErr) {
+        console.error(`Failed to resolve analysis ${analysis.id}:`, updateErr);
+      } else {
+        resolved++;
+      }
+    })
+  );
 
   return NextResponse.json({ message: "Resolution complete", resolved, checked: pending.length });
 }

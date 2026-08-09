@@ -92,12 +92,12 @@ function AdminControls({ pick, onUpdate }: { pick: Pick; onUpdate: (id: string, 
   const mark = async (result: "won" | "lost" | "void" | null) => {
     setSaving(true);
     try {
-      await fetch(`/api/picks/${pick.id}`, {
+      const res = await fetch(`/api/picks/${pick.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ result }),
       });
-      onUpdate(pick.id, result);
+      if (res.ok) onUpdate(pick.id, result);
     } finally {
       setSaving(false);
     }
@@ -371,7 +371,6 @@ export default function PicksPage() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [isFree, setIsFree] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [forbidden, setForbidden] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Paper trade modal state
@@ -386,12 +385,8 @@ export default function PicksPage() {
     if (!isSignedIn) { setLoading(false); return; }
     setLoading(true);
     fetch("/api/picks")
-      .then((r) => {
-        if (r.status === 403) { setForbidden(true); return null; }
-        return r.json();
-      })
+      .then((r) => r.json())
       .then((d) => {
-        if (!d) return;
         if (d.error) setError(d.error);
         else {
           setPicks(d.picks ?? []);
@@ -588,33 +583,14 @@ export default function PicksPage() {
           </div>
         )}
 
-        {forbidden && (
-          <div className="max-w-md mx-auto text-center py-16">
-            <div className="w-16 h-16 rounded-2xl bg-green-dim border border-[#00dc82]/20 flex items-center justify-center mx-auto mb-5">
-              <Lock size={28} className="text-[#00dc82]" />
-            </div>
-            <h2 className="text-xl font-bold mb-2">Subscribers Only</h2>
-            <p className="text-text-dim text-sm mb-6 leading-relaxed">
-              Daily AI picks are available to FadeMe Pro members.
-            </p>
-            <Link
-              href="/analyze"
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#00dc82] text-[#070d1a] font-semibold text-sm hover:brightness-110 transition-all"
-            >
-              <Zap size={14} />
-              Get FadeMe Pro
-            </Link>
-          </div>
-        )}
-
-        {error && !forbidden && (
+        {error && (
           <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/30 flex items-center gap-3">
             <AlertCircle size={16} className="text-red-400 shrink-0" />
             <p className="text-red-300 text-sm">{error}</p>
           </div>
         )}
 
-        {!loading && isSignedIn && !forbidden && !error && picks.length === 0 && (
+        {!loading && isSignedIn && !error && picks.length === 0 && (
           <div className="text-center py-24">
             <div className="w-16 h-16 rounded-2xl bg-white/5 border border-border-subtle flex items-center justify-center mx-auto mb-5">
               <Sparkles size={28} className="text-text-dim" />

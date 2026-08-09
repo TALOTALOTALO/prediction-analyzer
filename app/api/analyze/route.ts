@@ -83,6 +83,26 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Service temporarily unavailable" }, { status: 503 });
   }
 
+  // Parse body before claiming the free slot — prevents burning it on a bad request
+  let image: string, mimeType: string;
+  try {
+    const body = await req.json();
+    image = body.image;
+    mimeType = body.mimeType;
+  } catch {
+    return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
+  }
+
+  if (!image || !mimeType) {
+    return NextResponse.json({ error: "Missing image or mimeType" }, { status: 400 });
+  }
+  if (!ALLOWED_MIME_TYPES.includes(mimeType as AllowedMimeType)) {
+    return NextResponse.json({ error: "Invalid image type" }, { status: 400 });
+  }
+  if (image.length > MAX_BASE64_LENGTH) {
+    return NextResponse.json({ error: "Image too large. Maximum size is 10MB." }, { status: 400 });
+  }
+
   if (!isActive) {
     // Atomically claim the free analysis slot — unique constraint on user_id prevents races
     const { error: claimErr } = await getSupabase()
@@ -113,18 +133,6 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const body = await req.json();
-    const { image, mimeType } = body as { image: string; mimeType: string };
-
-    if (!image || !mimeType) {
-      return NextResponse.json({ error: "Missing image or mimeType" }, { status: 400 });
-    }
-    if (!ALLOWED_MIME_TYPES.includes(mimeType as AllowedMimeType)) {
-      return NextResponse.json({ error: "Invalid image type" }, { status: 400 });
-    }
-    if (image.length > MAX_BASE64_LENGTH) {
-      return NextResponse.json({ error: "Image too large. Maximum size is 10MB." }, { status: 400 });
-    }
 
     // Call 1: Vision parse — extract structured bet details from screenshot
     const parseResponse = await client.messages.create({
