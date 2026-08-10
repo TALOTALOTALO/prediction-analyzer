@@ -31,21 +31,24 @@ export async function POST(
     return NextResponse.json({ error: "Only Polymarket picks supported" }, { status: 400 });
   }
 
-  // Search Polymarket Gamma markets API — same endpoint used in fetchPolymarkets
-  const query = encodeURIComponent(pick.event as string);
-  const res = await fetch(
-    `https://gamma-api.polymarket.com/markets?search=${query}&limit=5`,
-    { headers: { "Content-Type": "application/json" } }
-  );
+  // Search Polymarket Gamma markets API — try exact title first, then first 5 words
+  const fullQuery = encodeURIComponent(pick.event as string);
+  const shortQuery = encodeURIComponent((pick.event as string).split(" ").slice(0, 5).join(" "));
 
-  if (!res.ok) {
-    return NextResponse.json({ error: "Gamma API request failed" }, { status: 502 });
-  }
+  const trySearch = async (q: string) => {
+    const r = await fetch(
+      `https://gamma-api.polymarket.com/markets?search=${q}&limit=5`,
+      { headers: { "Content-Type": "application/json" } }
+    );
+    if (!r.ok) return null;
+    return r.json() as Promise<Record<string, unknown>[]>;
+  };
 
-  const markets: Record<string, unknown>[] = await res.json();
+  let markets = await trySearch(fullQuery);
+  if (!markets || markets.length === 0) markets = await trySearch(shortQuery);
 
   if (!markets || markets.length === 0) {
-    return NextResponse.json({ error: "No matching Polymarket market found" }, { status: 404 });
+    return NextResponse.json({ error: "No matching Polymarket market found — the market may have been resolved or delisted" }, { status: 404 });
   }
 
   // Extract event slug from the market's parent events array (same pattern as fetchPolymarkets)

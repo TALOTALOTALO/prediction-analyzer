@@ -376,15 +376,30 @@ function PickCard({
           )}
 
           {pick.platform && pick.result === null && (
-            <a
-              href={getMarketUrl(pick.platform, pick.market_id, pick.event)}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl border border-[#00dc82]/30 text-[#00dc82] text-sm font-semibold hover:bg-[#00dc82]/10 transition-all"
-            >
-              <ExternalLink size={14} />
-              Place trade on {pick.platform}
-            </a>
+            <div className="space-y-1.5">
+              <a
+                href={getMarketUrl(pick.platform, pick.market_id, pick.event)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl border border-[#00dc82]/30 text-[#00dc82] text-sm font-semibold hover:bg-[#00dc82]/10 transition-all"
+              >
+                <ExternalLink size={14} />
+                Place trade on {pick.platform}
+              </a>
+              {pick.platform === "Polymarket" && (
+                <p className="text-center text-xs text-text-dim">
+                  Link not working?{" "}
+                  <a
+                    href="https://polymarket.com"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-white/50 hover:text-white transition-colors underline underline-offset-2"
+                  >
+                    Search Polymarket manually
+                  </a>
+                </p>
+              )}
+            </div>
           )}
 
           <div className="space-y-2">
