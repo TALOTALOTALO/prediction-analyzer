@@ -220,14 +220,18 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
                       <p className="text-white text-sm font-medium leading-snug truncate">{pick.event}</p>
                       <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                         <span className="text-xs text-text-dim">{pick.position} @ {pick.odds}</span>
-                        <a
-                          href={marketUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex items-center gap-0.5 text-xs text-text-dim hover:text-white transition-colors"
-                        >
-                          {pick.platform} <ExternalLink size={9} className="ml-0.5" />
-                        </a>
+                        {pick.market_id ? (
+                          <a
+                            href={marketUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-0.5 text-xs text-text-dim hover:text-white transition-colors"
+                          >
+                            {pick.platform} <ExternalLink size={9} className="ml-0.5" />
+                          </a>
+                        ) : (
+                          <span className="text-xs text-text-dim">{pick.platform}</span>
+                        )}
                       </div>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
