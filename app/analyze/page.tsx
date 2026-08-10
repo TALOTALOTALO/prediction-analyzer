@@ -118,6 +118,7 @@ function AnalyzePageInner() {
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
 
   const [dashPicks, setDashPicks] = useState<DashboardPick[]>([]);
+  const [picksLoading, setPicksLoading] = useState(true);
   const [recentAnalyses, setRecentAnalyses] = useState<Array<{
     id: string; event: string; grade: string; recommendation: string;
     created_at: string; platform: string; outcome: "correct" | "incorrect" | null;
@@ -136,32 +137,36 @@ function AnalyzePageInner() {
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
+    // Fire in parallel with subscription check — eliminates the waterfall
+    const picksPromise = fetch("/api/picks").then((r) => r.json()).catch(() => null);
+    const historyPromise = fetch("/api/history").then((r) => r.json()).catch(() => null);
+
     fetch("/api/subscription")
       .then((r) => r.json())
       .then((d) => {
         if (d.active) {
           setSubStatus("active");
-          // Log checkin then fetch streak
           fetch("/api/streak", { method: "POST" })
             .then(() => fetch("/api/streak"))
             .then((r) => r.json())
             .then((s) => setStreak(s.streak ?? 0))
             .catch(() => {});
-          fetch("/api/picks")
-            .then((r) => r.json())
-            .then((data) => { if (data.picks) setDashPicks(data.picks.slice(0, 3)); })
+          picksPromise
+            .then((data) => { if (data?.picks) setDashPicks(data.picks.slice(0, 3)); })
+            .finally(() => setPicksLoading(false));
+          historyPromise
+            .then((data) => { if (data?.analyses) setRecentAnalyses(data.analyses.slice(0, 4)); })
             .catch(() => {});
-          fetch("/api/history")
-            .then((r) => r.json())
-            .then((data) => { if (data.analyses) setRecentAnalyses(data.analyses.slice(0, 4)); })
-            .catch(() => {});
-        } else if (d.freeAnalysisUsed) {
-          setSubStatus("upgradeRequired");
         } else {
-          setSubStatus("free");
+          setPicksLoading(false);
+          if (d.freeAnalysisUsed) {
+            setSubStatus("upgradeRequired");
+          } else {
+            setSubStatus("free");
+          }
         }
       })
-      .catch(() => setSubStatus("free"));
+      .catch(() => { setPicksLoading(false); setSubStatus("free"); });
   }, []);
 
   const startCheckout = async () => {
@@ -400,42 +405,52 @@ function AnalyzePageInner() {
         {(subStatus === "active" || subStatus === "free" || subStatus === "upgradeRequired") && (
           <>
             {/* Today's Picks preview — subscribers only */}
-            {subStatus === "active" && dashPicks.length > 0 && (
+            {subStatus === "active" && (picksLoading || dashPicks.length > 0) && (
               <div className="mb-10">
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-2">
                     <Sparkles size={15} className="text-green-bright" />
                     <span className="text-sm font-semibold text-white">Today&apos;s Picks</span>
                   </div>
-                  <Link href="/picks" className="flex items-center gap-1 text-xs text-green-bright hover:brightness-110 transition-colors">
-                    View all <ChevronRight size={12} />
-                  </Link>
+                  {!picksLoading && (
+                    <Link href="/picks" className="flex items-center gap-1 text-xs text-green-bright hover:brightness-110 transition-colors">
+                      View all <ChevronRight size={12} />
+                    </Link>
+                  )}
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  {dashPicks.map((pick) => {
-                    const isBuy = pick.recommendation === "BUY";
-                    const gs = GRADE_CONFIG[pick.grade] ?? GRADE_CONFIG["C"];
-                    return (
-                      <Link
-                        key={pick.id}
-                        href="/picks"
-                        className={`rounded-xl border ${gs.border} ${gs.bg} p-4 hover:brightness-110 transition-all block`}
-                      >
-                        <div className="flex items-center justify-between mb-2">
-                          <span className={`text-xl font-black ${gs.text}`}>{pick.grade}</span>
-                          <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${isBuy ? "bg-green-bright/10 text-green-bright" : "bg-red-500/10 text-red-400"}`}>
-                            {pick.recommendation}
-                          </span>
-                        </div>
-                        <p className="text-white text-xs font-medium leading-snug line-clamp-2 mb-2">{pick.event}</p>
-                        <div className="flex items-center justify-between text-xs text-text-dim">
-                          <span>{pick.platform}</span>
-                          <span>{pick.confidence_level}</span>
-                        </div>
-                      </Link>
-                    );
-                  })}
-                </div>
+                {picksLoading ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    {[0, 1, 2].map((i) => (
+                      <div key={i} className="rounded-xl border border-border-subtle bg-white/5 p-4 animate-pulse h-28" />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    {dashPicks.map((pick) => {
+                      const isBuy = pick.recommendation === "BUY";
+                      const gs = GRADE_CONFIG[pick.grade] ?? GRADE_CONFIG["C"];
+                      return (
+                        <Link
+                          key={pick.id}
+                          href="/picks"
+                          className={`rounded-xl border ${gs.border} ${gs.bg} p-4 hover:brightness-110 transition-all block`}
+                        >
+                          <div className="flex items-center justify-between mb-2">
+                            <span className={`text-xl font-black ${gs.text}`}>{pick.grade}</span>
+                            <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${isBuy ? "bg-green-bright/10 text-green-bright" : "bg-red-500/10 text-red-400"}`}>
+                              {pick.recommendation}
+                            </span>
+                          </div>
+                          <p className="text-white text-xs font-medium leading-snug line-clamp-2 mb-2">{pick.event}</p>
+                          <div className="flex items-center justify-between text-xs text-text-dim">
+                            <span>{pick.platform}</span>
+                            <span>{pick.confidence_level}</span>
+                          </div>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             )}
 
