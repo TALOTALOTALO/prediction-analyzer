@@ -2,6 +2,29 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { getSupabase } from "@/lib/supabase";
 
+// Convert a market title into a slug-style prefix suitable for slug_contains search
+function titleToSlugPrefix(title: string): string {
+  return title
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, "")
+    .trim()
+    .replace(/\s+/g, "-")
+    .split("-")
+    .slice(0, 6) // first 6 slug words — enough to be specific, not so many we miss due to wording differences
+    .join("-");
+}
+
+interface GammaEvent {
+  id: string;
+  slug: string;
+  title: string;
+}
+
+interface GammaMarket {
+  slug?: string;
+  events?: GammaEvent[];
+}
+
 export async function POST(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -31,33 +54,75 @@ export async function POST(
     return NextResponse.json({ error: "Only Polymarket picks supported" }, { status: 400 });
   }
 
-  // Search Polymarket Gamma markets API — try exact title first, then first 5 words
-  const fullQuery = encodeURIComponent(pick.event as string);
-  const shortQuery = encodeURIComponent((pick.event as string).split(" ").slice(0, 5).join(" "));
+  const eventTitle = pick.event as string;
+  const slugPrefix = titleToSlugPrefix(eventTitle);
 
-  const trySearch = async (q: string) => {
-    const r = await fetch(
-      `https://gamma-api.polymarket.com/markets?search=${q}&limit=5`,
-      { headers: { "Content-Type": "application/json" } }
-    );
-    if (!r.ok) return null;
-    return r.json() as Promise<Record<string, unknown>[]>;
+  // Strategy 1: search Polymarket events endpoint by slug_contains
+  // This is more reliable than full-text search — event slugs are derived from titles
+  const searchEventsBySlug = async (prefix: string): Promise<GammaEvent | null> => {
+    try {
+      const r = await fetch(
+        `https://gamma-api.polymarket.com/events?slug_contains=${encodeURIComponent(prefix)}&limit=10`,
+        { headers: { "Content-Type": "application/json" } }
+      );
+      if (!r.ok) return null;
+      const events: GammaEvent[] = await r.json();
+      if (!events?.length) return null;
+      // Prefer exact title match, fall back to first result
+      const exact = events.find((e) =>
+        e.title?.toLowerCase().includes(eventTitle.toLowerCase().slice(0, 30))
+      );
+      return exact ?? events[0];
+    } catch {
+      return null;
+    }
   };
 
-  let markets = await trySearch(fullQuery);
-  if (!markets || markets.length === 0) markets = await trySearch(shortQuery);
+  // Strategy 2: fallback to markets search + extract events[0].slug
+  const searchMarkets = async (query: string): Promise<string | null> => {
+    try {
+      const r = await fetch(
+        `https://gamma-api.polymarket.com/markets?search=${encodeURIComponent(query)}&limit=10`,
+        { headers: { "Content-Type": "application/json" } }
+      );
+      if (!r.ok) return null;
+      const markets: GammaMarket[] = await r.json();
+      if (!markets?.length) return null;
+      for (const m of markets) {
+        const eventSlug = m.events?.[0]?.slug;
+        if (eventSlug) return eventSlug;
+      }
+      // Last resort: strip -yes/-no from market slug
+      const first = markets[0];
+      return (first.slug ?? "").replace(/-yes$|-no$/i, "") || null;
+    } catch {
+      return null;
+    }
+  };
 
-  if (!markets || markets.length === 0) {
-    return NextResponse.json({ error: "No matching Polymarket market found — the market may have been resolved or delisted" }, { status: 404 });
+  // Try strategies in order: slug prefix (most reliable) → shorter prefix → markets search
+  let eventSlug: string | null = null;
+
+  const ev = await searchEventsBySlug(slugPrefix);
+  if (ev?.slug) {
+    eventSlug = ev.slug;
+  } else {
+    // Try with just the first 4 words in case title wording diverges
+    const shortPrefix = slugPrefix.split("-").slice(0, 4).join("-");
+    const ev2 = await searchEventsBySlug(shortPrefix);
+    if (ev2?.slug) {
+      eventSlug = ev2.slug;
+    } else {
+      // Final fallback: markets full-text search
+      eventSlug = await searchMarkets(eventTitle);
+    }
   }
 
-  // Extract event slug from the market's parent events array (same pattern as fetchPolymarkets)
-  const firstMarket = markets[0];
-  const eventSlug = (firstMarket.events as Array<{ slug?: string }>)?.[0]?.slug
-    ?? (firstMarket.slug as string)?.replace(/-yes$|-no$/i, "");
-
   if (!eventSlug) {
-    return NextResponse.json({ error: "Could not determine event slug" }, { status: 404 });
+    return NextResponse.json(
+      { error: "No matching Polymarket event found — the market may have been resolved or delisted" },
+      { status: 404 }
+    );
   }
 
   const { error: updateErr } = await getSupabase()

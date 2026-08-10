@@ -82,8 +82,8 @@ export async function fetchPolymarkets(): Promise<LiveMarket[]> {
         const daysOut = (new Date(end).getTime() - Date.now()) / 86400000;
         return daysOut > 0 && daysOut < 90;
       })
-      .slice(0, 30)
-      .map((m) => {
+      .slice(0, 50)
+      .map((m): LiveMarket | null => {
         let prices: string[];
         try {
           prices = JSON.parse((m.outcomePrices as string) ?? '["0.5","0.5"]');
@@ -92,14 +92,15 @@ export async function fetchPolymarkets(): Promise<LiveMarket[]> {
           prices = ["0.5", "0.5"];
         }
         const yesPrice = Math.round(parseFloat(prices[0] ?? "0.5") * 100);
-        // Use the parent event slug for URL building — market slugs have -yes/-no suffix
-        // which breaks polymarket.com/event/{slug} links.
+        // polymarket.com/event/{slug} requires the PARENT EVENT slug (from events[0].slug),
+        // NOT the market slug. Market slugs differ from event slugs and break direct links.
+        // Event slug format: {title-slug}-{random}-{timestamp}
         const eventSlug = (m.events as Array<{ slug?: string }>)?.[0]?.slug;
-        const marketSlug = (m.slug as string)?.replace(/-yes$|-no$/i, "");
+        if (!eventSlug) return null; // skip markets with no parent event slug
         return {
           platform: "Polymarket",
           question: m.question as string,
-          marketId: eventSlug ?? marketSlug ?? (m.id as string) ?? undefined,
+          marketId: eventSlug,
           yesPrice,
           noPrice: 100 - yesPrice,
           volume: (m.volumeNum as number) ?? parseFloat((m.volume as string) ?? "0"),
@@ -107,7 +108,9 @@ export async function fetchPolymarkets(): Promise<LiveMarket[]> {
           closesAt: m.endDate as string,
           category: (m.events as Array<{ category?: string }>)?.[0]?.category ?? "General",
         };
-      });
+      })
+      .filter((m): m is LiveMarket => m !== null)
+      .slice(0, 30);
   } catch {
     return [];
   }
