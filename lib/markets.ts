@@ -92,10 +92,14 @@ export async function fetchPolymarkets(): Promise<LiveMarket[]> {
           prices = ["0.5", "0.5"];
         }
         const yesPrice = Math.round(parseFloat(prices[0] ?? "0.5") * 100);
+        // Use the parent event slug for URL building — market slugs have -yes/-no suffix
+        // which breaks polymarket.com/event/{slug} links.
+        const eventSlug = (m.events as Array<{ slug?: string }>)?.[0]?.slug;
+        const marketSlug = (m.slug as string)?.replace(/-yes$|-no$/i, "");
         return {
           platform: "Polymarket",
           question: m.question as string,
-          marketId: (m.slug as string) ?? (m.id as string) ?? undefined,
+          marketId: eventSlug ?? marketSlug ?? (m.id as string) ?? undefined,
           yesPrice,
           noPrice: 100 - yesPrice,
           volume: (m.volumeNum as number) ?? parseFloat((m.volume as string) ?? "0"),

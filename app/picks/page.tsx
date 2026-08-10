@@ -154,6 +154,19 @@ function AdminControls({ pick, onUpdate, onRefresh }: { pick: Pick; onUpdate: (i
     }
   };
 
+  const fixLink = async () => {
+    setRefreshing(true);
+    try {
+      const res = await fetch(`/api/picks/${pick.id}/fix-link`, { method: "POST" });
+      const data = await res.json();
+      if (res.ok && data.market_id) {
+        onRefresh(pick.id, { market_id: data.market_id });
+      }
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
   return (
     <div className="flex items-center gap-1.5 flex-wrap">
       <span className="text-xs text-text-dim mr-1">Mark:</span>
@@ -180,8 +193,17 @@ function AdminControls({ pick, onUpdate, onRefresh }: { pick: Pick; onUpdate: (i
         disabled={saving || refreshing}
         className="text-xs px-2.5 py-1 rounded-full border border-blue-500/30 text-blue-400 hover:border-blue-400 hover:text-blue-300 transition-all disabled:opacity-50 ml-1"
       >
-        {refreshing ? "Refreshing…" : "↻ Refresh"}
+        {refreshing ? "Working…" : "↻ Refresh"}
       </button>
+      {pick.platform === "Polymarket" && (
+        <button
+          onClick={fixLink}
+          disabled={saving || refreshing}
+          className="text-xs px-2.5 py-1 rounded-full border border-yellow-500/30 text-yellow-400 hover:border-yellow-400 hover:text-yellow-300 transition-all disabled:opacity-50"
+        >
+          Fix Link
+        </button>
+      )}
     </div>
   );
 }
