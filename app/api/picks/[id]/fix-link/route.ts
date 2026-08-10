@@ -31,10 +31,10 @@ export async function POST(
     return NextResponse.json({ error: "Only Polymarket picks supported" }, { status: 400 });
   }
 
-  // Search Polymarket Gamma events API for the best matching event
+  // Search Polymarket Gamma markets API — same endpoint used in fetchPolymarkets
   const query = encodeURIComponent(pick.event as string);
   const res = await fetch(
-    `https://gamma-api.polymarket.com/events?search=${query}&limit=5&active=true`,
+    `https://gamma-api.polymarket.com/markets?search=${query}&limit=5`,
     { headers: { "Content-Type": "application/json" } }
   );
 
@@ -42,24 +42,19 @@ export async function POST(
     return NextResponse.json({ error: "Gamma API request failed" }, { status: 502 });
   }
 
-  const events: Record<string, unknown>[] = await res.json();
+  const markets: Record<string, unknown>[] = await res.json();
 
-  if (!events || events.length === 0) {
-    // Try without active filter — market may be resolved
-    const res2 = await fetch(
-      `https://gamma-api.polymarket.com/events?search=${query}&limit=5`,
-      { headers: { "Content-Type": "application/json" } }
-    );
-    const events2: Record<string, unknown>[] = res2.ok ? await res2.json() : [];
-    if (!events2 || events2.length === 0) {
-      return NextResponse.json({ error: "No matching Polymarket event found" }, { status: 404 });
-    }
-    events.push(...events2);
+  if (!markets || markets.length === 0) {
+    return NextResponse.json({ error: "No matching Polymarket market found" }, { status: 404 });
   }
 
-  const eventSlug = events[0]?.slug as string | undefined;
+  // Extract event slug from the market's parent events array (same pattern as fetchPolymarkets)
+  const firstMarket = markets[0];
+  const eventSlug = (firstMarket.events as Array<{ slug?: string }>)?.[0]?.slug
+    ?? (firstMarket.slug as string)?.replace(/-yes$|-no$/i, "");
+
   if (!eventSlug) {
-    return NextResponse.json({ error: "Event has no slug" }, { status: 404 });
+    return NextResponse.json({ error: "Could not determine event slug" }, { status: 404 });
   }
 
   const { error: updateErr } = await getSupabase()

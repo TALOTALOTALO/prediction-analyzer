@@ -3,10 +3,12 @@ import { auth } from "@clerk/nextjs/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { getSupabase } from "@/lib/supabase";
 
+export const maxDuration = 300;
+
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 async function tavilySearch(query: string): Promise<string> {
-  if (!process.env.TAVILY_API_KEY) return "";
+  if (!process.env.TAVILY_API_KEY || !query) return "";
   try {
     const res = await fetch("https://api.tavily.com/search", {
       method: "POST",
