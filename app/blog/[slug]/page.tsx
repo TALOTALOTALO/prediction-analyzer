@@ -250,7 +250,7 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
                 href="/record"
                 className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl border border-[#00dc82]/30 text-[#00dc82] font-semibold text-sm hover:bg-[#00dc82]/10 transition-all"
               >
-                <Trophy size={14} /> See AI Track Record
+                <Trophy size={14} /> See Our Track Record
               </Link>
               <Link
                 href="/analyze"
