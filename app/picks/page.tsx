@@ -28,6 +28,7 @@ import {
 import { UserButton, SignUpButton, useUser } from "@clerk/nextjs";
 import MobileNav from "@/components/MobileNav";
 import { calcKelly, kellyWager, useBankroll, type KellyFraction } from "@/hooks/useKelly";
+import { getMarketUrl } from "@/lib/market-url";
 
 const STAKE_OPTIONS = [10, 25, 50, 100];
 
@@ -65,24 +66,6 @@ interface WinRecord {
   total: number;
 }
 
-function getMarketUrl(platform: string, marketId: string | null, eventTitle?: string): string {
-  const encoded = eventTitle ? encodeURIComponent(eventTitle) : "";
-  if (platform === "Kalshi") {
-    if (marketId) {
-      const series = marketId.split("-")[0].toLowerCase();
-      if (series) return `https://kalshi.com/markets/${series}`;
-    }
-    return encoded ? `https://kalshi.com/explore?s=${encoded}` : "https://kalshi.com/explore";
-  }
-  if (platform === "Polymarket") {
-    if (marketId) return `https://polymarket.com/event/${marketId}`;
-    return encoded ? `https://polymarket.com/markets?s=${encoded}` : "https://polymarket.com/markets";
-  }
-  if (platform === "PredictIt") {
-    return "https://www.predictit.org/markets";
-  }
-  return "#";
-}
 
 const GRADE_CONFIG: Record<string, { border: string; text: string; bg: string; glow: string }> = {
   S: { border: "border-[#00dc82]", text: "text-[#00dc82]", bg: "bg-[#00dc82]/10", glow: "shadow-[0_0_20px_rgba(0,220,130,0.15)]" },
