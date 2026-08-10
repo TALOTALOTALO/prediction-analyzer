@@ -235,9 +235,14 @@ function BankrollInput({ bankroll, onChange }: { bankroll: number; onChange: (v:
         />
       </div>
       {bankroll > 0 && (
-        <div className="flex items-center gap-1 text-xs text-[#00dc82]">
+        <div className="relative group flex items-center gap-1 text-xs text-[#00dc82] cursor-help">
           <Calculator size={11} />
           <span>Kelly ready</span>
+          <div className="pointer-events-none absolute bottom-full right-0 mb-2 w-64 rounded-xl bg-[#0d1424] border border-border-subtle p-3 text-left opacity-0 group-hover:opacity-100 transition-opacity duration-150 z-50 shadow-xl">
+            <p className="text-white font-semibold text-xs mb-1">Kelly Criterion</p>
+            <p className="text-text-dim text-xs leading-relaxed">A formula that calculates the optimal bet size based on your edge and bankroll. It maximizes long-run growth while avoiding overbetting.</p>
+            <p className="text-text-dim text-xs leading-relaxed mt-1.5"><span className="text-white">Formula:</span> bet = (edge ÷ odds) × bankroll. Most pros use ½ Kelly to reduce variance.</p>
+          </div>
         </div>
       )}
     </div>
