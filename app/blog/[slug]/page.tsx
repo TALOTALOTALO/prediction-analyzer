@@ -45,7 +45,7 @@ async function getPost(slug: string): Promise<Post | null> {
   try {
     return await sanityClient.fetch(
       `*[_type == "post" && slug.current == $slug][0] {
-        _id, title, slug, excerpt, publishedAt, category, readTime, mainImage, body
+        _id, title, slug, excerpt, publishedAt, category, readTime, section, mainImage, body
       }`,
       { slug },
       { next: { revalidate: 60 } }
@@ -147,8 +147,13 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
 
       <article className="max-w-3xl mx-auto px-6 py-16">
         <div className="flex items-center gap-3 mb-6">
+          {post.section === "playbook" ? (
+            <span className="text-xs font-semibold text-blue-400 uppercase tracking-wider">Playbook</span>
+          ) : (
+            <span className="text-xs font-semibold text-green-bright uppercase tracking-wider">Market Report</span>
+          )}
           {post.category && (
-            <span className="text-xs font-semibold text-green-bright uppercase tracking-wider">
+            <span className="text-xs font-semibold text-text-dim uppercase tracking-wider">
               {post.category}
             </span>
           )}

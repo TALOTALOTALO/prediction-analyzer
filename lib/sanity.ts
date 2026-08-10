@@ -31,6 +31,7 @@ export interface Post {
   publishedAt: string;
   category: string;
   readTime: number;
+  section?: "market-report" | "playbook";
   mainImage?: SanityImageSource;
   body: unknown[];
 }

@@ -1,31 +1,81 @@
+"use client";
+
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { ArrowRight, ArrowLeft, Clock } from "lucide-react";
-import { sanityClient, urlFor, type Post } from "@/lib/sanity";
+import { ArrowRight, ArrowLeft, Clock, BarChart2, BookOpen } from "lucide-react";
+import { urlFor, type Post } from "@/lib/sanity";
 
-export const revalidate = 60;
-
-async function getPosts(): Promise<Post[]> {
-  try {
-    return await sanityClient.fetch(
-      `*[_type == "post"] | order(publishedAt desc) {
-        _id, title, slug, excerpt, publishedAt, category, readTime, mainImage
-      }`,
-      {},
-      { next: { revalidate: 60 } }
-    );
-  } catch {
-    return [];
-  }
+function PostCard({ post }: { post: Post }) {
+  return (
+    <Link
+      href={`/blog/${post.slug.current}`}
+      className="group rounded-2xl border border-border-subtle bg-card overflow-hidden hover:border-[#00dc82]/30 transition-all"
+    >
+      {post.mainImage && (
+        <div className="w-full h-44 bg-white/5 overflow-hidden">
+          <img
+            src={urlFor(post.mainImage).width(1000).height(320).url()}
+            alt={post.title}
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+          />
+        </div>
+      )}
+      <div className="p-5">
+        <div className="flex items-center gap-3 mb-2">
+          {post.category && (
+            <span className="text-xs font-semibold text-[#00dc82] uppercase tracking-wider">
+              {post.category}
+            </span>
+          )}
+          {post.readTime && (
+            <span className="flex items-center gap-1 text-xs text-text-dim">
+              <Clock size={11} />
+              {post.readTime} min read
+            </span>
+          )}
+        </div>
+        <h2 className="text-lg font-bold text-white mb-1.5 group-hover:text-[#00dc82] transition-colors leading-snug">
+          {post.title}
+        </h2>
+        <p className="text-text-dim text-sm leading-relaxed mb-4 line-clamp-2">{post.excerpt}</p>
+        <div className="flex items-center justify-between">
+          <span className="text-xs text-text-dim">
+            {new Date(post.publishedAt).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
+          </span>
+          <span className="flex items-center gap-1 text-xs text-[#00dc82] font-medium">
+            Read more <ArrowRight size={12} />
+          </span>
+        </div>
+      </div>
+    </Link>
+  );
 }
 
-export const metadata = {
-  title: "Blog — FadeMe",
-  description: "Prediction market strategy, fading guides, and edge analysis from FadeMe.",
-};
+const PLAYBOOK_TOPICS = [
+  { title: "Kelly Criterion: The Math Behind Optimal Bet Sizing", desc: "Why flat betting leaves money on the table and how to size every position correctly." },
+  { title: "Polymarket vs Kalshi: Which Platform Has Better Edge?", desc: "A direct comparison of fees, liquidity, market selection, and where sharp money flows." },
+  { title: "How to Read Implied Probability Like a Sharp", desc: "Translating cent prices into probabilities and spotting when the crowd has it wrong." },
+  { title: "Why Markets Misprice Events (And How to Exploit It)", desc: "The psychology behind market inefficiencies and the patterns that repeat every cycle." },
+  { title: "Bankroll Management for Prediction Market Traders", desc: "Stop blowing up accounts. Here's the framework that keeps you in the game long-term." },
+  { title: "The Beginner's Guide to Prediction Markets", desc: "What they are, how they work, and why they're often more accurate than polls and pundits." },
+];
 
-export default async function BlogPage() {
-  const posts = await getPosts();
+export default function BlogPage() {
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<"market-report" | "playbook">("market-report");
+
+  useEffect(() => {
+    fetch("/api/blog-posts")
+      .then((r) => r.json())
+      .then((d) => setPosts(d.posts ?? []))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  const reports = posts.filter((p) => !p.section || p.section === "market-report");
+  const playbook = posts.filter((p) => p.section === "playbook");
 
   return (
     <div className="min-h-screen bg-bg">
@@ -38,43 +88,112 @@ export default async function BlogPage() {
           <Link href="/" className="flex items-center gap-2">
             <Image src="/logo-icon.png" alt="FadeMe" width={24} height={24} className="rounded-md" />
             <span className="text-white font-semibold tracking-tight">
-              Fade<span className="text-green-bright">Me</span>
+              Fade<span className="text-[#00dc82]">Me</span>
             </span>
           </Link>
           <Link
             href="/analyze"
-            className="px-4 py-2 rounded-lg bg-green-bright text-[#070d1a] font-semibold text-sm hover:brightness-110 transition-all"
+            className="px-4 py-2 rounded-lg bg-[#00dc82] text-[#070d1a] font-semibold text-sm hover:brightness-110 transition-all"
           >
             Analyze a Bet
           </Link>
         </div>
       </nav>
 
-      <div className="max-w-5xl mx-auto px-6 py-16">
-        <div className="text-center mb-14">
-          <p className="text-green-bright text-xs font-semibold uppercase tracking-widest mb-3">The Edge Report</p>
-          <h1 className="text-4xl md:text-5xl font-black mb-4">Prediction Market Strategy</h1>
+      <div className="max-w-5xl mx-auto px-6 py-14">
+        <div className="text-center mb-10">
+          <p className="text-[#00dc82] text-xs font-semibold uppercase tracking-widest mb-3">FadeMe Blog</p>
+          <h1 className="text-4xl md:text-5xl font-black mb-4">Prediction Market Edge</h1>
           <p className="text-text-dim text-lg max-w-xl mx-auto">
-            Guides, analysis, and tactics for finding edge on Kalshi, Polymarket, and beyond.
+            Daily market reports and a growing playbook on how to find and keep your edge.
           </p>
         </div>
 
-        {posts.length === 0 ? (
-          <div className="text-center py-24">
-            <p className="text-text-dim text-lg">No posts yet — check back soon.</p>
+        {/* Tab switcher */}
+        <div className="flex gap-2 p-1 rounded-xl bg-white/5 border border-border-subtle w-fit mx-auto mb-10">
+          <button
+            onClick={() => setActiveTab("market-report")}
+            className={`flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-semibold transition-all ${
+              activeTab === "market-report"
+                ? "bg-[#00dc82] text-[#070d1a]"
+                : "text-text-dim hover:text-white"
+            }`}
+          >
+            <BarChart2 size={14} />
+            Market Reports
+            {reports.length > 0 && (
+              <span className={`text-xs px-1.5 py-0.5 rounded-full ${activeTab === "market-report" ? "bg-[#070d1a]/20" : "bg-white/10"}`}>
+                {reports.length}
+              </span>
+            )}
+          </button>
+          <button
+            onClick={() => setActiveTab("playbook")}
+            className={`flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-semibold transition-all ${
+              activeTab === "playbook"
+                ? "bg-[#00dc82] text-[#070d1a]"
+                : "text-text-dim hover:text-white"
+            }`}
+          >
+            <BookOpen size={14} />
+            Playbook
+            {playbook.length > 0 && (
+              <span className={`text-xs px-1.5 py-0.5 rounded-full ${activeTab === "playbook" ? "bg-[#070d1a]/20" : "bg-white/10"}`}>
+                {playbook.length}
+              </span>
+        )}
+          </button>
+        </div>
+
+        {loading ? (
+          <div className="flex justify-center py-24">
+            <div className="w-6 h-6 border-2 border-white/10 border-t-[#00dc82] rounded-full animate-spin" />
           </div>
+        ) : activeTab === "market-report" ? (
+          <>
+            <p className="text-text-dim text-sm mb-6">Daily AI-curated picks breakdowns, fade plays, and market analysis.</p>
+            {reports.length === 0 ? (
+              <p className="text-center text-text-dim py-16">No reports yet — check back soon.</p>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                {reports.map((post) => <PostCard key={post._id} post={post} />)}
+              </div>
+            )}
+          </>
         ) : (
-          <div className="flex flex-col gap-6">
-            {posts.map((post) => (
-              <PostCard key={post._id} post={post} />
-            ))}
-          </div>
+          <>
+            <p className="text-text-dim text-sm mb-6">Strategy guides, platform comparisons, and the math behind finding edge in prediction markets.</p>
+            {playbook.length === 0 ? (
+              <div className="space-y-4">
+                <div className="rounded-2xl border border-[#00dc82]/20 bg-[#00dc82]/5 p-5 mb-6">
+                  <p className="text-[#00dc82] text-sm font-semibold mb-1">Coming soon</p>
+                  <p className="text-text-dim text-sm">We&apos;re building out the Playbook — in-depth guides on everything from Kelly Criterion to platform selection. Here&apos;s what&apos;s dropping first:</p>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {PLAYBOOK_TOPICS.map((topic) => (
+                    <div key={topic.title} className="rounded-xl border border-border-subtle bg-card p-5 opacity-60">
+                      <div className="flex items-center gap-2 mb-2">
+                        <BookOpen size={13} className="text-[#00dc82]" />
+                        <span className="text-xs text-[#00dc82] font-semibold uppercase tracking-wider">Playbook</span>
+                      </div>
+                      <h3 className="text-white font-semibold text-sm mb-1 leading-snug">{topic.title}</h3>
+                      <p className="text-text-dim text-xs leading-relaxed">{topic.desc}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                {playbook.map((post) => <PostCard key={post._id} post={post} />)}
+              </div>
+            )}
+          </>
         )}
       </div>
 
       <footer className="border-t border-border-subtle py-8 px-6 mt-8">
         <div className="max-w-5xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
-          <span className="text-white font-bold">Fade<span className="text-green-bright">Me</span></span>
+          <span className="text-white font-bold">Fade<span className="text-[#00dc82]">Me</span></span>
           <div className="flex items-center gap-6 text-xs text-text-dim">
             <Link href="/terms" className="hover:text-white transition-colors">Terms</Link>
             <Link href="/privacy" className="hover:text-white transition-colors">Privacy</Link>
@@ -83,51 +202,5 @@ export default async function BlogPage() {
         </div>
       </footer>
     </div>
-  );
-}
-
-function PostCard({ post }: { post: Post }) {
-  return (
-    <Link
-      href={`/blog/${post.slug.current}`}
-      className="group rounded-2xl border border-border-subtle bg-card overflow-hidden hover:border-green-bright/30 transition-all"
-    >
-      {post.mainImage && (
-        <div className="w-full h-48 bg-white/5 overflow-hidden">
-          <img
-            src={urlFor(post.mainImage).width(1000).height(320).url()}
-            alt={post.title}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-          />
-        </div>
-      )}
-      <div className="p-6">
-        <div className="flex items-center gap-3 mb-3">
-          {post.category && (
-            <span className="text-xs font-semibold text-green-bright uppercase tracking-wider">
-              {post.category}
-            </span>
-          )}
-          {post.readTime && (
-            <span className="flex items-center gap-1 text-xs text-text-dim">
-              <Clock size={11} />
-              {post.readTime} min read
-            </span>
-          )}
-        </div>
-        <h2 className="text-xl font-bold text-white mb-2 group-hover:text-green-bright transition-colors">
-          {post.title}
-        </h2>
-        <p className="text-text-dim text-sm leading-relaxed mb-4 line-clamp-2">{post.excerpt}</p>
-        <div className="flex items-center justify-between">
-          <span className="text-xs text-text-dim">
-            {new Date(post.publishedAt).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
-          </span>
-          <span className="flex items-center gap-1 text-xs text-green-bright font-medium">
-            Read more <ArrowRight size={12} />
-          </span>
-        </div>
-      </div>
-    </Link>
   );
 }

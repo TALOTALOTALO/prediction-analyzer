@@ -200,6 +200,7 @@ Return ONLY a JSON object (no markdown fences, no extra text):
       publishedAt: new Date().toISOString(),
       category: article.category,
       readTime: article.readTime,
+      section: "market-report",
       body: portableBody,
     });
 
