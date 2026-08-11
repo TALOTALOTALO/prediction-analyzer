@@ -403,6 +403,31 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* Grade System */}
+      <section className="py-20 px-4 border-t border-border-subtle">
+        <div className="max-w-5xl mx-auto">
+          <SectionLabel>The Grade System</SectionLabel>
+          <h2 className="text-3xl md:text-4xl font-bold text-center mb-3">
+            Every bet gets a grade.{" "}
+            <span className="text-green-bright">Here&apos;s your playbook.</span>
+          </h2>
+          <p className="text-text-dim text-center mb-12 max-w-xl mx-auto">
+            Upload a screenshot and your bet comes back graded S through F — with a clear move attached. No ambiguity, no maybe. Just a verdict.
+          </p>
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+            {GRADES.map((g) => (
+              <GradeCard key={g.grade} {...g} />
+            ))}
+          </div>
+
+          <p className="text-center text-text-dim text-xs mt-8">
+            Grades are based on the gap between market-implied probability and our AI&apos;s true estimate.{" "}
+            <span className="text-white/60">Bigger gap = higher grade = clearer edge.</span>
+          </p>
+        </div>
+      </section>
+
       {/* Daily AI Picks */}
       <section className="py-20 px-4 border-t border-border-subtle">
         <div className="max-w-5xl mx-auto">
@@ -1085,6 +1110,33 @@ function SliderField({ label, value, min, max, step, format, onChange, note, not
   );
 }
 
+function GradeCard({ grade, action, desc, border, text, bg, glow, pulse }: {
+  grade: string; action: string; desc: string;
+  border: string; text: string; bg: string; glow: string; pulse: string;
+}) {
+  return (
+    <div
+      className={`group relative rounded-2xl border ${border} ${bg} p-5 flex flex-col items-center text-center cursor-default
+        transition-all duration-300 ease-out
+        hover:-translate-y-2 hover:scale-[1.04] ${glow}`}
+    >
+      {/* Animated pulse ring on hover */}
+      <div className={`absolute inset-0 rounded-2xl ${pulse} opacity-0 group-hover:opacity-100 transition-opacity duration-300`} />
+
+      <span className={`text-4xl font-black ${text} mb-2 relative z-10
+        transition-all duration-300 group-hover:scale-110 group-hover:drop-shadow-[0_0_12px_currentColor]`}>
+        {grade}
+      </span>
+      <span className={`text-xs font-black uppercase tracking-widest ${text} mb-3 relative z-10`}>
+        {action}
+      </span>
+      <p className="text-text-dim text-xs leading-relaxed relative z-10 transition-colors duration-300 group-hover:text-white/70">
+        {desc}
+      </p>
+    </div>
+  );
+}
+
 function TestimonialCard({ name, handle, text, stars }: {
   name: string; handle: string; text: string; stars: number;
 }) {
@@ -1194,6 +1246,69 @@ const FAQS = [
   {
     question: "What's the $1 first week about?",
     answer: "We'd rather you try FadeMe on real bets before committing to the full price. The first week is $1 — that's it. After that, it's $19.99/month. If it doesn't pay for itself many times over in better bet selection, cancel before day 8 and it cost you a dollar.",
+  },
+];
+
+const GRADES = [
+  {
+    grade: "S",
+    action: "Send it",
+    desc: "Elite edge. Massive gap between market price and true odds. Max conviction — take the position.",
+    border: "border-[#00dc82]",
+    text: "text-[#00dc82]",
+    bg: "bg-[#00dc82]/10",
+    glow: "hover:shadow-[0_0_35px_rgba(0,220,130,0.3)]",
+    pulse: "bg-[#00dc82]/5 ring-1 ring-[#00dc82]/30",
+  },
+  {
+    grade: "A",
+    action: "Buy it",
+    desc: "Strong edge. Clear mispricing with solid upside. Worth sizing up on.",
+    border: "border-[#00c86e]",
+    text: "text-[#00c86e]",
+    bg: "bg-[#00c86e]/10",
+    glow: "hover:shadow-[0_0_35px_rgba(0,200,110,0.25)]",
+    pulse: "bg-[#00c86e]/5 ring-1 ring-[#00c86e]/30",
+  },
+  {
+    grade: "B",
+    action: "Size small",
+    desc: "Decent edge. Some upside, manageable risk. Go lighter than usual.",
+    border: "border-blue-500",
+    text: "text-blue-400",
+    bg: "bg-blue-500/10",
+    glow: "hover:shadow-[0_0_35px_rgba(59,130,246,0.25)]",
+    pulse: "bg-blue-500/5 ring-1 ring-blue-500/30",
+  },
+  {
+    grade: "C",
+    action: "Hold off",
+    desc: "Marginal edge. Barely justifies the risk. Wait for a better setup.",
+    border: "border-yellow-500",
+    text: "text-yellow-400",
+    bg: "bg-yellow-500/10",
+    glow: "hover:shadow-[0_0_35px_rgba(234,179,8,0.25)]",
+    pulse: "bg-yellow-500/5 ring-1 ring-yellow-500/30",
+  },
+  {
+    grade: "D",
+    action: "Skip it",
+    desc: "Weak edge. Risk doesn't justify sizing. Better plays are out there.",
+    border: "border-orange-500",
+    text: "text-orange-400",
+    bg: "bg-orange-500/10",
+    glow: "hover:shadow-[0_0_35px_rgba(249,115,22,0.25)]",
+    pulse: "bg-orange-500/5 ring-1 ring-orange-500/30",
+  },
+  {
+    grade: "F",
+    action: "Fade it",
+    desc: "Market has you beat. Flip to the other side or walk away entirely.",
+    border: "border-red-500",
+    text: "text-red-400",
+    bg: "bg-red-500/10",
+    glow: "hover:shadow-[0_0_35px_rgba(239,68,68,0.25)]",
+    pulse: "bg-red-500/5 ring-1 ring-red-500/30",
   },
 ];
 
