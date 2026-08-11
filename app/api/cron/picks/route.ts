@@ -190,11 +190,11 @@ Return ONLY a valid JSON array (no markdown, no explanation). Include between 3 
     "keyRisks": ["string", "string", "string"],
     "marketInefficiency": "string",
     "confidenceLevel": "string (High or Very High)",
-    "marketId": "string or null (Kalshi ticker exactly as it appears in the market data e.g. KXBTC-25DEC31-B50000, or Polymarket market slug string e.g. will-the-fed-cut-rates — null if not available)"
+    "marketId": "string or null — COPY THE EXACT ID STRING from the market data line that says 'ID: ...' — do NOT shorten, truncate, or reformat it. For Kalshi this is the ticker e.g. KXBTC-25DEC31-B50000. For Polymarket this is the full event slug including any random suffix e.g. us-announces-end-of-iranian-blockade-byptptpt-20260713152715080. Reproduce it character-for-character. null only if no ID was provided in the market data."
   }
 ]
 
-Order by edge score descending. Be rigorous — if fewer than 3 strong picks exist, return what you have. Always include marketId when the market data contains a ticker or conditionId.`,
+Order by edge score descending. Be rigorous — if fewer than 3 strong picks exist, return what you have. Always include marketId when the market data line contains an ID field — copy it exactly.`,
     }],
   });
 
