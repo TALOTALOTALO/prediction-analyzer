@@ -425,6 +425,14 @@ export default function LandingPage() {
             Grades are based on the gap between market-implied probability and our AI&apos;s true estimate.{" "}
             <span className="text-white/60">Bigger gap = higher grade = clearer edge.</span>
           </p>
+
+          <div className="mt-6 flex items-start gap-3 rounded-xl border border-white/10 bg-white/5 px-5 py-4 max-w-2xl mx-auto">
+            <Shield size={14} className="text-text-dim shrink-0 mt-0.5" />
+            <p className="text-text-dim text-xs leading-relaxed">
+              <span className="text-white/70 font-semibold">Disclosure:</span>{" "}
+              Even an S-grade pick can lose. A higher grade means better edge, not a guarantee — you can still lose 100% of your money on any prediction market position. Never bet more than you can afford to lose entirely.
+            </p>
+          </div>
         </div>
       </section>
 
