@@ -770,6 +770,10 @@ function ParlayBuilderTab() {
           (p: Record<string, unknown>) => p.recommendation === "BUY" || p.recommendation === "HOLD"
         );
         setPicks(all);
+        // Auto-select the platform that has picks if the default (Kalshi) has none
+        const hasKalshi = all.some((p) => p.platform === "Kalshi");
+        const hasPolymarket = all.some((p) => p.platform === "Polymarket");
+        if (!hasKalshi && hasPolymarket) setBuildPlatform("Polymarket");
       })
       .catch(() => setPicksError("Failed to load today's picks."))
       .finally(() => setPicksLoading(false));
