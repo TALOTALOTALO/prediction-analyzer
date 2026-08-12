@@ -26,7 +26,7 @@ async function checkKalshiResult(ticker: string): Promise<"yes" | "no" | null> {
       headers["KALSHI-ACCESS-SIGNATURE"] = kalshiSign(privateKey, ts, "GET", path);
     }
 
-    const res = await fetch(`https://api.elections.kalshi.com${path}`, { headers });
+    const res = await fetch(`https://api.kalshi.com${path}`, { headers });
     if (!res.ok) return null;
     const data = await res.json();
     const result = data.market?.result as string | null;
@@ -39,21 +39,42 @@ async function checkKalshiResult(ticker: string): Promise<"yes" | "no" | null> {
 
 async function checkPolymarketResult(marketId: string): Promise<"yes" | "no" | null> {
   try {
-    const res = await fetch(
-      `https://gamma-api.polymarket.com/markets?id=${marketId}`,
-      { headers: { "Content-Type": "application/json" } }
-    );
+    // New picks store the parent event slug; legacy picks stored condition IDs (hex)
+    const isSlug = /^[a-z0-9-]+$/.test(marketId) && !marketId.startsWith("0x");
+
+    if (isSlug) {
+      // Slugs are event slugs — query events endpoint to get child markets
+      const evRes = await fetch(`https://gamma-api.polymarket.com/events?slug=${encodeURIComponent(marketId)}`);
+      if (evRes.ok) {
+        const events: Record<string, unknown>[] = await evRes.json();
+        const ev = events?.[0];
+        if (ev && ev.active === false) {
+          const markets = ev.markets as Array<Record<string, unknown>> | undefined;
+          const firstMarket = markets?.[0];
+          if (firstMarket) {
+            let prices: string[];
+            try { prices = JSON.parse((firstMarket.outcomePrices as string) ?? '["0.5","0.5"]'); }
+            catch { prices = ["0.5", "0.5"]; }
+            const yesPrice = parseFloat(prices[0] ?? "0.5");
+            if (yesPrice >= 0.95) return "yes";
+            if (yesPrice <= 0.05) return "no";
+            return null;
+          }
+        }
+      }
+    }
+
+    // Fallback: legacy condition ID lookup via markets endpoint
+    const query = isSlug ? `slug=${marketId}` : `id=${marketId}`;
+    const res = await fetch(`https://gamma-api.polymarket.com/markets?${query}`);
     if (!res.ok) return null;
     const data: Record<string, unknown>[] = await res.json();
     const market = data?.[0];
     if (!market || market.active !== false) return null;
 
     let prices: string[];
-    try {
-      prices = JSON.parse((market.outcomePrices as string) ?? '["0.5","0.5"]');
-    } catch {
-      return null;
-    }
+    try { prices = JSON.parse((market.outcomePrices as string) ?? '["0.5","0.5"]'); }
+    catch { return null; }
     const yesPrice = parseFloat(prices[0] ?? "0.5");
     if (yesPrice >= 0.95) return "yes";
     if (yesPrice <= 0.05) return "no";
