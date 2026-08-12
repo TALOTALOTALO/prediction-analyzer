@@ -301,7 +301,7 @@ export default function PortfolioPage() {
 
   return (
     <div className="min-h-screen bg-bg">
-      <MobileNav activeTab="portfolio" />
+      {!loading && !error && <MobileNav activeTab="portfolio" />}
       <nav className="border-b border-border-subtle px-6 py-4">
         <div className="max-w-3xl mx-auto flex items-center justify-between">
           <Link href="/picks" className="flex items-center gap-2 text-text-dim hover:text-white transition-colors">

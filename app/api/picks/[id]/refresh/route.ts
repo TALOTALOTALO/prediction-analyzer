@@ -106,9 +106,9 @@ Return ONLY a JSON object with updated analysis fields (no markdown):
   "bearCase": "string (strongest current argument AGAINST this position, grounded in live context)",
   "keyRisks": ["string", "string", "string"],
   "recommendationReason": "string (1 sentence — updated key reason)",
-  "trueOdds": number,
-  "edgeScore": number,
-  "grade": "string (S, A, B, C, D, or F)",
+  "trueOdds": number (0-100 scale — your probability estimate as a percentage, e.g. 62 for 62%, NOT 0.62),
+  "edgeScore": number (MUST equal trueOdds minus impliedProbability exactly, in percentage points),
+  "grade": "string — derived ONLY from edgeScore: S if edgeScore >= 20, A if edgeScore >= 10, B if >= 5, C if >= 2, D if > 0, F if <= 0",
   "confidenceLevel": "string (Low, Medium, High, Very High)"
 }`,
     }],

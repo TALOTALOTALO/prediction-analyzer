@@ -13,6 +13,7 @@ import {
   TrendingDown,
   ShieldCheck,
   Zap,
+  Clock,
 } from "lucide-react";
 
 interface PickRecord {
@@ -25,6 +26,19 @@ interface PickRecord {
   grade: string;
   edge_score: number;
   result: "won" | "lost" | "void";
+  odds: string;
+  implied_probability: number;
+  market_id: string;
+}
+
+interface PendingPick {
+  id: string;
+  pick_date: string;
+  platform: string;
+  event: string;
+  position: string;
+  recommendation: string;
+  grade: string;
   odds: string;
   implied_probability: number;
   market_id: string;
@@ -74,11 +88,14 @@ const GRADE_TEXT: Record<string, string> = {
   A: "text-[#00c86e]",
   B: "text-blue-400",
   C: "text-yellow-400",
+  D: "text-orange-400",
+  F: "text-red-400",
 };
 
 export default function RecordPage() {
   const [record, setRecord] = useState<WinRecord | null>(null);
   const [picks, setPicks] = useState<PickRecord[]>([]);
+  const [pendingPicks, setPendingPicks] = useState<PendingPick[]>([]);
   const [trackingSince, setTrackingSince] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"all" | "won" | "lost">("all");
@@ -89,6 +106,7 @@ export default function RecordPage() {
       .then((d) => {
         setRecord(d.record ?? null);
         setPicks(d.picks ?? []);
+        setPendingPicks(d.pendingPicks ?? []);
         setTrackingSince(d.trackingSince ?? null);
       })
       .finally(() => setLoading(false));
@@ -286,14 +304,14 @@ export default function RecordPage() {
                             {pick.odds && (
                               <span className="text-xs text-text-dim">{pick.odds}</span>
                             )}
-                            {pick.edge_score !== null && (
+                            {pick.edge_score !== null && Math.abs(pick.edge_score) <= 50 && (
                               <span
                                 className={`text-xs font-medium ${
                                   pick.edge_score > 0 ? "text-[#00dc82]" : "text-red-400"
                                 }`}
                               >
                                 {pick.edge_score > 0 ? "+" : ""}
-                                {pick.edge_score?.toFixed(0)} edge
+                                {pick.edge_score?.toFixed(1)}pp
                               </span>
                             )}
                           </div>
@@ -314,6 +332,62 @@ export default function RecordPage() {
                     </div>
                   );
                 })}
+              </div>
+            )}
+
+            {/* Pending picks */}
+            {pendingPicks.length > 0 && (
+              <div className="mt-8">
+                <div className="flex items-center gap-2 mb-4">
+                  <Clock size={15} className="text-yellow-400" />
+                  <h2 className="text-sm font-semibold text-white">Awaiting Resolution ({pendingPicks.length})</h2>
+                </div>
+                <div className="space-y-3">
+                  {pendingPicks.map((pick) => {
+                    const isBuy = pick.recommendation === "BUY";
+                    const gradeColor = GRADE_TEXT[pick.grade] ?? "text-text-dim";
+                    const dateLabel = new Date(pick.pick_date + "T12:00:00").toLocaleDateString(
+                      "en-US", { month: "short", day: "numeric" }
+                    );
+                    const verifyUrl = marketVerifyUrl(pick.platform, pick.market_id);
+                    return (
+                      <div key={pick.id} className="rounded-xl border border-yellow-500/15 bg-yellow-500/5 p-4">
+                        <div className="flex items-start gap-3">
+                          <div className="shrink-0 pt-0.5">
+                            <span className={`text-lg font-black ${gradeColor}`}>{pick.grade}</span>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1 flex-wrap">
+                              <span className="text-xs text-text-dim">{pick.platform}</span>
+                              <span className="text-xs text-text-dim">·</span>
+                              <span className="text-xs text-text-dim">{dateLabel}</span>
+                              <span className="flex items-center gap-1 text-xs text-yellow-400 bg-yellow-500/10 px-2 py-0.5 rounded-full">
+                                <Clock size={10} /> Pending
+                              </span>
+                            </div>
+                            <p className="text-white text-sm font-medium leading-snug mb-2">{pick.event}</p>
+                            <div className="flex items-center gap-3 flex-wrap">
+                              <div className={`flex items-center gap-1 text-xs font-bold px-2 py-1 rounded-md ${isBuy ? "bg-[#00dc82]/10 text-[#00dc82]" : "bg-red-500/10 text-red-400"}`}>
+                                {isBuy ? <TrendingUp size={11} /> : <TrendingDown size={11} />}
+                                {pick.recommendation} {pick.position}
+                              </div>
+                              {pick.odds && <span className="text-xs text-text-dim">{pick.odds}</span>}
+                            </div>
+                          </div>
+                          <a
+                            href={verifyUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="shrink-0 flex items-center gap-1 text-xs text-text-dim hover:text-white transition-colors border border-border-subtle hover:border-white/20 px-2.5 py-1.5 rounded-lg"
+                          >
+                            <ExternalLink size={11} />
+                            View
+                          </a>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             )}
 
