@@ -3,13 +3,14 @@
 import Link from "next/link";
 import Image from "next/image";
 import { UserButton } from "@clerk/nextjs";
-import { Zap, Sparkles, BarChart2, MessageCircle, Clock } from "lucide-react";
+import { Zap, Sparkles, BarChart2, MessageCircle, Clock, Layers } from "lucide-react";
 
-type ActiveTab = "analyze" | "picks" | "portfolio" | "coach" | "history";
+type ActiveTab = "analyze" | "picks" | "portfolio" | "coach" | "history" | "parlay";
 
 const TABS: { id: ActiveTab; label: string; href: string; icon: typeof Zap }[] = [
   { id: "analyze",   label: "Analyze",   href: "/analyze",   icon: Zap },
   { id: "picks",     label: "Picks",     href: "/picks",     icon: Sparkles },
+  { id: "parlay",    label: "Parlay",    href: "/parlay",    icon: Layers },
   { id: "portfolio", label: "Portfolio", href: "/portfolio", icon: BarChart2 },
   { id: "coach",     label: "Coach",     href: "/coach",     icon: MessageCircle },
   { id: "history",   label: "History",   href: "/history",   icon: Clock },

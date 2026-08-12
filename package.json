@@ -22,7 +22,8 @@
     "react-dom": "^19.2.8",
     "resend": "^6.18.1",
     "stripe": "^22.4.0",
-    "svix": "^1.99.1"
+    "svix": "^1.99.1",
+    "twitter-api-v2": "^1.29.1"
   },
   "devDependencies": {
     "@sanity/vision": "^6.9.0",

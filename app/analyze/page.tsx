@@ -28,6 +28,7 @@ import {
   Flame,
   DollarSign,
   Calculator,
+  Layers,
 } from "lucide-react";
 import { calcKelly, kellyWager, useBankroll, type KellyFraction } from "@/hooks/useKelly";
 
@@ -410,6 +411,25 @@ function AnalyzePageInner() {
                   </div>
                 )}
               </div>
+            )}
+
+            {/* Parlay Analyzer promo — subscribers only */}
+            {subStatus === "active" && (
+              <Link
+                href="/parlay"
+                className="group flex items-center gap-4 mb-8 p-4 rounded-2xl border border-border-subtle bg-card hover:border-[#00dc82]/40 hover:bg-[#00dc82]/5 transition-all"
+              >
+                <div className="w-10 h-10 rounded-xl bg-[#00dc82]/10 border border-[#00dc82]/20 flex items-center justify-center shrink-0">
+                  <Layers size={18} className="text-[#00dc82]" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-white text-sm font-semibold mb-0.5">Parlay Analyzer</p>
+                  <p className="text-text-dim text-xs leading-snug">
+                    Got a multi-leg combo? Drop a screenshot — we grade every leg and tell you which ones to cut.
+                  </p>
+                </div>
+                <ChevronRight size={16} className="text-text-dim group-hover:text-[#00dc82] transition-colors shrink-0" />
+              </Link>
             )}
 
             <div className="text-center mb-8">

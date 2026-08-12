@@ -22,6 +22,7 @@ import {
   Trophy,
   ExternalLink,
   Mail,
+  Layers,
 } from "lucide-react";
 import { UserButton, useUser } from "@clerk/nextjs";
 import { sanityClient, type Post } from "@/lib/sanity";
@@ -119,6 +120,7 @@ export default function LandingPage() {
             <a href="#faq" className="hover:text-white transition-colors">FAQ</a>
             <Link href="/blog" className="hover:text-white transition-colors">Blog</Link>
             <Link href="/record" className="hover:text-white transition-colors">Track Record</Link>
+            <Link href="/archive" className="hover:text-white transition-colors hidden lg:block">Picks Archive</Link>
           </div>
           {isLoaded && isSignedIn ? (
             <div className="flex items-center gap-3">
@@ -496,6 +498,64 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* Parlay Analyzer */}
+      <section className="py-20 px-4 border-t border-border-subtle">
+        <div className="max-w-5xl mx-auto">
+          <SectionLabel>Parlay Analyzer</SectionLabel>
+          <h2 className="text-3xl md:text-4xl font-bold text-center mb-3">
+            Build smarter combos.{" "}
+            <span className="text-green-bright">Cut the weak legs.</span>
+          </h2>
+          <p className="text-text-dim text-center mb-14 max-w-2xl mx-auto">
+            Drop a screenshot of any multi-leg parlay or combo bet. We grade every leg individually,
+            calculate the true combined probability, and tell you exactly which legs are dragging you
+            down — so you can trim the parlay and keep the edge.
+          </p>
+
+          <div className="grid md:grid-cols-2 gap-8 items-center">
+            <div className="space-y-5">
+              {[
+                {
+                  step: "01",
+                  title: "Every leg graded individually",
+                  desc: "Each bet in your combo gets its own true probability estimate versus the market's implied odds. Green means value, red means the book has you beat on that leg.",
+                },
+                {
+                  step: "02",
+                  title: "True combined probability vs payout",
+                  desc: "We multiply your true probabilities across all legs and compare it to the payout's implied break-even probability. Most parlays are F-grade — compounded vig kills the EV.",
+                },
+                {
+                  step: "03",
+                  title: "KEEP or REMOVE, for each leg",
+                  desc: "The analyzer flags which legs are weak links and shows you the trimmed parlay — the version with real edge that's still worth placing.",
+                },
+              ].map(({ step, title, desc }) => (
+                <div key={step} className="flex items-start gap-4">
+                  <div className="shrink-0 w-8 h-8 rounded-full bg-green-bright text-[#070d1a] font-black text-xs flex items-center justify-center">
+                    {step}
+                  </div>
+                  <div>
+                    <p className="text-white font-semibold text-sm mb-1">{title}</p>
+                    <p className="text-text-dim text-sm leading-relaxed">{desc}</p>
+                  </div>
+                </div>
+              ))}
+
+              <Link
+                href="/parlay"
+                className="inline-flex items-center gap-2 mt-2 px-5 py-2.5 rounded-xl bg-green-bright text-[#070d1a] font-bold text-sm hover:brightness-110 transition-all"
+              >
+                <Layers size={14} />
+                Analyze a Parlay — $1 First Week
+              </Link>
+            </div>
+
+            <ParlayCardMock />
+          </div>
+        </div>
+      </section>
+
       {/* Email capture */}
       <section className="py-20 px-4 border-t border-border-subtle">
         <div className="max-w-2xl mx-auto text-center">
@@ -720,12 +780,20 @@ export default function LandingPage() {
                     {" "}· We win when you win — so we keep it honest
                   </span>
                 </div>
-                <Link
-                  href="/record"
-                  className="flex items-center gap-1.5 text-sm font-semibold text-green-bright hover:brightness-110 transition-all whitespace-nowrap"
-                >
-                  See every call, wins and losses <ExternalLink size={13} />
-                </Link>
+                <div className="flex items-center gap-4">
+                  <Link
+                    href="/archive"
+                    className="text-sm text-text-dim hover:text-white transition-all whitespace-nowrap"
+                  >
+                    Browse by date
+                  </Link>
+                  <Link
+                    href="/record"
+                    className="flex items-center gap-1.5 text-sm font-semibold text-green-bright hover:brightness-110 transition-all whitespace-nowrap"
+                  >
+                    See every call, wins and losses <ExternalLink size={13} />
+                  </Link>
+                </div>
               </div>
             </div>
           </div>
@@ -932,6 +1000,7 @@ export default function LandingPage() {
           <div className="flex items-center gap-6 text-xs text-text-dim">
             <Link href="/blog" className="hover:text-white transition-colors">Blog</Link>
             <Link href="/record" className="hover:text-white transition-colors">Track Record</Link>
+            <Link href="/archive" className="hover:text-white transition-colors">Picks Archive</Link>
             <Link href="/terms" className="hover:text-white transition-colors">Terms</Link>
             <Link href="/privacy" className="hover:text-white transition-colors">Privacy</Link>
             <span>© 2026 FadeMe</span>
@@ -1036,6 +1105,72 @@ function DailyPickCardMock() {
       <p className="text-xs text-text-dim leading-relaxed border-t border-border-subtle pt-3">
         Market underpricing rate cut probability given recent inflation data and Fed signaling. Strong edge with 60-day runway to resolution.
       </p>
+    </div>
+  );
+}
+
+function ParlayCardMock() {
+  const legs = [
+    { event: "Miami to win (vs Leon)",         implied: 47, true_: 44, keep: false },
+    { event: "Orlando to win (vs San Luis)",    implied: 62, true_: 68, keep: true  },
+    { event: "Toluca to win (vs Dallas)",       implied: 71, true_: 74, keep: true  },
+    { event: "Seattle to win (vs Guadalajara)", implied: 30, true_: 26, keep: false },
+    { event: "LA FC to win (vs Queretaro)",     implied: 77, true_: 80, keep: true  },
+  ];
+  return (
+    <div className="rounded-2xl border border-[#00dc82]/30 bg-card p-5 shadow-2xl space-y-3">
+      <div className="flex items-center justify-between mb-1">
+        <div className="flex items-center gap-2">
+          <Layers size={14} className="text-green-bright" />
+          <span className="text-xs font-semibold text-green-bright uppercase tracking-wider">Parlay Analyzer</span>
+        </div>
+        <span className="text-xs text-text-dim bg-white/5 px-2.5 py-1 rounded-full">5 legs · F grade</span>
+      </div>
+
+      {/* Legs */}
+      <div className="space-y-2">
+        {legs.map((leg, i) => (
+          <div
+            key={i}
+            className={`flex items-center justify-between gap-3 px-3 py-2 rounded-xl ${
+              leg.keep ? "bg-[#00dc82]/5 border border-[#00dc82]/20" : "bg-red-500/5 border border-red-500/20"
+            }`}
+          >
+            <div className="flex-1 min-w-0">
+              <p className="text-white text-xs font-medium truncate">{leg.event}</p>
+              <p className="text-text-dim text-[10px]">Implied {leg.implied}% · True {leg.true_}%</p>
+            </div>
+            <span className={`shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full ${
+              leg.keep ? "bg-[#00dc82]/15 text-[#00dc82]" : "bg-red-500/15 text-red-400"
+            }`}>
+              {leg.keep ? "KEEP" : "REMOVE"}
+            </span>
+          </div>
+        ))}
+      </div>
+
+      {/* Math row */}
+      {/* True combined: 0.44×0.68×0.74×0.26×0.80 ≈ 4.61% | Keep-only: 0.68×0.74×0.80 ≈ 40.3% */}
+      <div className="grid grid-cols-3 gap-2 pt-1">
+        {[
+          { label: "Payout Implied", val: "6.25%",  color: "text-blue-400" },
+          { label: "True Combined",  val: "4.61%",  color: "text-[#00dc82]" },
+          { label: "Parlay Edge",    val: "-1.64%", color: "text-red-400" },
+        ].map(({ label, val, color }) => (
+          <div key={label} className="rounded-lg bg-white/5 border border-border-subtle p-2 text-center">
+            <p className="text-[9px] text-text-dim uppercase tracking-wide mb-0.5">{label}</p>
+            <p className={`text-sm font-black ${color}`}>{val}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Optimization hint */}
+      <div className="rounded-xl bg-[#00dc82]/5 border border-[#00dc82]/15 px-3 py-2 flex items-start gap-2">
+        <Shield size={12} className="text-[#00dc82] shrink-0 mt-0.5" />
+        <p className="text-[10px] text-text-dim leading-snug">
+          Remove Miami &amp; Seattle — trimmed 3-leg parlay raises true combined probability to <span className="text-[#00dc82] font-semibold">40.3%</span>.
+        </p>
+      </div>
     </div>
   );
 }
@@ -1211,6 +1346,12 @@ const FEATURES = [
     title: "Risk Analysis",
     description: "Get the bull case, bear case, and the three key risks you need to watch before placing your bet.",
     icon: Shield,
+  },
+  {
+    index: 4,
+    title: "Parlay Analyzer",
+    description: "Upload any multi-leg combo and get per-leg KEEP/REMOVE grades, true combined probability vs payout, and a trimmed parlay that still has edge.",
+    icon: Layers,
   },
 ];
 

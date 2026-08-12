@@ -1,13 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { Zap, Sparkles, MessageCircle, Clock, BarChart2 } from "lucide-react";
+import { Zap, Sparkles, MessageCircle, Clock, BarChart2, Layers } from "lucide-react";
 
-type ActiveTab = "analyze" | "picks" | "coach" | "history" | "portfolio";
+type ActiveTab = "analyze" | "picks" | "coach" | "history" | "portfolio" | "parlay";
 
 const TABS: { id: ActiveTab; label: string; href: string; icon: typeof Zap }[] = [
   { id: "analyze",   label: "Analyze",   href: "/analyze",   icon: Zap },
   { id: "picks",     label: "Picks",     href: "/picks",     icon: Sparkles },
+  { id: "parlay",    label: "Parlay",    href: "/parlay",    icon: Layers },
   { id: "portfolio", label: "Portfolio", href: "/portfolio", icon: BarChart2 },
   { id: "coach",     label: "Coach",     href: "/coach",     icon: MessageCircle },
   { id: "history",   label: "History",   href: "/history",   icon: Clock },

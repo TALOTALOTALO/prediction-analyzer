@@ -1,5 +1,6 @@
 import { MetadataRoute } from "next";
 import { sanityClient } from "@/lib/sanity";
+import { getSupabase } from "@/lib/supabase";
 
 const BASE_URL = "https://www.fademe.ai";
 
@@ -10,6 +11,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${BASE_URL}/analyze`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.8 },
     { url: `${BASE_URL}/picks`, lastModified: new Date(), changeFrequency: "daily", priority: 0.8 },
     { url: `${BASE_URL}/record`, lastModified: new Date(), changeFrequency: "daily", priority: 0.85 },
+    { url: `${BASE_URL}/archive`, lastModified: new Date(), changeFrequency: "daily", priority: 0.8 },
     { url: `${BASE_URL}/terms`, lastModified: new Date(), changeFrequency: "yearly", priority: 0.3 },
     { url: `${BASE_URL}/privacy`, lastModified: new Date(), changeFrequency: "yearly", priority: 0.3 },
   ];
@@ -29,5 +31,23 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     // Sanity unavailable at build time — sitemap still includes static pages
   }
 
-  return [...staticPages, ...postPages];
+  let pickDatePages: MetadataRoute.Sitemap = [];
+  try {
+    const { data } = await getSupabase()
+      .from("daily_picks")
+      .select("pick_date")
+      .order("pick_date", { ascending: false });
+
+    const uniqueDates = [...new Set((data ?? []).map((r) => r.pick_date as string))];
+    pickDatePages = uniqueDates.map((date) => ({
+      url: `${BASE_URL}/picks/${date}`,
+      lastModified: new Date(date + "T23:59:00"),
+      changeFrequency: "weekly",
+      priority: 0.75,
+    }));
+  } catch {
+    // Supabase unavailable at build time
+  }
+
+  return [...staticPages, ...postPages, ...pickDatePages];
 }

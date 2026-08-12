@@ -9,6 +9,10 @@
       "schedule": "0 14 * * *"
     },
     {
+      "path": "/api/cron/twitter",
+      "schedule": "0 15 * * *"
+    },
+    {
       "path": "/api/cron/resolve-trades",
       "schedule": "0 12 * * *"
     },

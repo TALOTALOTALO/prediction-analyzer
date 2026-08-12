@@ -88,6 +88,7 @@ function gradeFromEdge(edge: number): string {
 }
 
 // Old picks stored probabilities as fractions (0.04 instead of 4).
+// Old picks stored probabilities as fractions (0.04 instead of 4).
 // If the value is in (0, 1), treat it as a fraction and convert to percentage.
 function normProb(p: number | null | undefined): number {
   const v = p ?? 0;
@@ -735,13 +736,18 @@ export default function PicksPage() {
   const saveFilter = async () => {
     setSavingFilter(true);
     const payload = selectedCategories.length > 0 ? selectedCategories : null;
-    await fetch("/api/preferences", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ categoryFilter: payload }),
-    }).catch(() => {});
-    setSavedCategoryFilter(payload);
-    setSavingFilter(false);
+    try {
+      const res = await fetch("/api/preferences", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ categoryFilter: payload }),
+      });
+      if (res.ok) setSavedCategoryFilter(payload);
+    } catch {
+      // network failure — leave savedCategoryFilter unchanged so filterDirty stays true
+    } finally {
+      setSavingFilter(false);
+    }
   };
 
   const allCategories = [...new Set(picks.map((p) => p.category).filter(Boolean))].sort();
