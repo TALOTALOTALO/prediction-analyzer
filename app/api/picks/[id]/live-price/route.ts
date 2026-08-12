@@ -30,21 +30,25 @@ async function fetchKalshiPrice(ticker: string): Promise<number | null> {
       headers["KALSHI-ACCESS-SIGNATURE"] = kalshiSign(privateKey, ts, "GET", path);
     }
 
-    const res = await fetch(`https://api.elections.kalshi.com${path}`, { headers });
+    const res = await fetch(`https://api.kalshi.com${path}`, { headers });
     if (!res.ok) return null;
     const data = await res.json();
 
-    // Kalshi prices are in 0–1 range; multiply × 100 to get cents
+    // Kalshi prices are integers in 0-100 (cents) — no conversion needed
     const market = data.market as Record<string, unknown> | undefined;
     if (!market) return null;
 
-    const raw =
-      (market.yes_ask as number | null | undefined) ??
-      (market.last_price as number | null | undefined) ??
-      null;
+    const yesBid = market.yes_bid as number | null | undefined;
+    const yesAsk = market.yes_ask as number | null | undefined;
+    const lastPrice = market.last_price as number | null | undefined;
+
+    // Use mid-price when bid/ask are available, otherwise last_price
+    const raw = (yesBid != null && yesAsk != null)
+      ? Math.round((yesBid + yesAsk) / 2)
+      : (yesAsk ?? lastPrice ?? null);
 
     if (raw === null || raw === undefined) return null;
-    return Math.round(raw * 100);
+    return raw;
   } catch {
     return null;
   }

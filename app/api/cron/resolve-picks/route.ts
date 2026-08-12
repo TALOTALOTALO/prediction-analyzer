@@ -26,7 +26,7 @@ async function checkKalshiResult(ticker: string): Promise<"yes" | "no" | null> {
       headers["KALSHI-ACCESS-SIGNATURE"] = kalshiSign(privateKey, ts, "GET", path);
     }
 
-    const res = await fetch(`https://api.elections.kalshi.com${path}`, { headers });
+    const res = await fetch(`https://api.kalshi.com${path}`, { headers });
     if (!res.ok) return null;
     const data = await res.json();
     const result = data.market?.result as string | null;

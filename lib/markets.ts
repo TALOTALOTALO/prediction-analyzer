@@ -25,40 +25,53 @@ export async function fetchKalshiMarkets(): Promise<LiveMarket[]> {
   try {
     const keyId = process.env.KALSHI_API_KEY_ID;
     const privateKeyRaw = process.env.KALSHI_PRIVATE_KEY;
-    const path = "/trade-api/v2/markets?limit=200&status=open";
+    // api.kalshi.com covers all categories; api.elections.kalshi.com is elections-only
+    const basePath = "/trade-api/v2/markets";
+    const query = "?limit=200&status=open";
     const headers: Record<string, string> = { "Content-Type": "application/json" };
 
     if (keyId && privateKeyRaw) {
       const privateKey = privateKeyRaw.replace(/\\n/g, "\n");
       const ts = Date.now();
-      // Kalshi signs only the base path, not query string
-      const basePath = "/trade-api/v2/markets";
       headers["KALSHI-ACCESS-KEY"] = keyId;
       headers["KALSHI-ACCESS-TIMESTAMP"] = String(ts);
+      // Kalshi signs only the base path, not query string
       headers["KALSHI-ACCESS-SIGNATURE"] = kalshiSign(privateKey, ts, "GET", basePath);
     }
 
-    const res = await fetch(`https://api.elections.kalshi.com${path}`, { headers });
-    if (!res.ok) return [];
+    const res = await fetch(`https://api.kalshi.com${basePath}${query}`, { headers });
+    if (!res.ok) {
+      console.error(`Kalshi API error: ${res.status} ${await res.text().then(t => t.slice(0, 200))}`);
+      return [];
+    }
     const data = await res.json();
 
     return (data.markets ?? [])
       .filter((m: Record<string, unknown>) => {
-        const yesBid = parseFloat((m.yes_bid_dollars as string) ?? "0");
-        return yesBid > 0.01;
+        // yes_bid and yes_ask are integers in cents (0-100); filter out illiquid/settled markets
+        const yesAsk = (m.yes_ask as number) ?? 0;
+        return yesAsk > 1 && yesAsk < 99;
       })
-      .slice(0, 40)
-      .map((m: Record<string, unknown>) => ({
-        platform: "Kalshi",
-        question: (m.title as string) ?? (m.event_ticker as string) ?? "Unknown",
-        marketId: (m.ticker as string) ?? undefined,
-        yesPrice: Math.round(parseFloat((m.yes_bid_dollars as string) ?? "0") * 100),
-        noPrice: Math.round(parseFloat((m.no_bid_dollars as string) ?? "0") * 100),
-        volume: parseFloat((m.volume_24h_fp as string) ?? "0"),
-        closesAt: m.close_time as string,
-        category: "Economics/Finance",
-      }));
-  } catch {
+      .slice(0, 60)
+      .map((m: Record<string, unknown>) => {
+        // Use mid-price (bid+ask)/2 for best estimate of implied probability
+        const yesBid = (m.yes_bid as number) ?? 0;
+        const yesAsk = (m.yes_ask as number) ?? 0;
+        const yesPrice = yesBid > 0 && yesAsk > 0 ? Math.round((yesBid + yesAsk) / 2) : ((m.last_price as number) ?? yesAsk);
+        return {
+          platform: "Kalshi",
+          question: (m.title as string) ?? (m.event_ticker as string) ?? "Unknown",
+          marketId: (m.ticker as string) ?? undefined,
+          yesPrice,
+          noPrice: 100 - yesPrice,
+          volume: (m.volume_24h as number) ?? 0,
+          liquidity: (m.open_interest as number) ?? 0,
+          closesAt: m.close_time as string,
+          category: (m.category as string) ?? "General",
+        };
+      });
+  } catch (e) {
+    console.error("Kalshi fetch exception:", e);
     return [];
   }
 }
