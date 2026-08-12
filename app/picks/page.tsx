@@ -86,6 +86,13 @@ function gradeFromEdge(edge: number): string {
   return "F";
 }
 
+// Old picks stored probabilities as fractions (0.04 instead of 4).
+// If the value is in (0, 1), treat it as a fraction and convert to percentage.
+function normProb(p: number | null | undefined): number {
+  const v = p ?? 0;
+  return v > 0 && v < 1 ? v * 100 : v;
+}
+
 function ResultBadge({ result }: { result: Pick["result"] }) {
   if (result === "won") return (
     <span className="flex items-center gap-1 text-xs font-bold text-[#00dc82] bg-[#00dc82]/10 px-2.5 py-1 rounded-full">
@@ -246,7 +253,9 @@ function BankrollInput({ bankroll, onChange }: { bankroll: number; onChange: (v:
 
 function KellyPanel({ pick, bankroll }: { pick: Pick; bankroll: number }) {
   const [fraction, setFraction] = useState<KellyFraction>("half");
-  const kelly = calcKelly(pick.implied_probability, pick.true_odds, pick.recommendation);
+  const impliedProb = normProb(pick.implied_probability);
+  const trueOdds = normProb(pick.true_odds);
+  const kelly = calcKelly(impliedProb, trueOdds, pick.recommendation);
 
   if (!kelly.hasEdge) {
     return (
@@ -259,8 +268,8 @@ function KellyPanel({ pick, bankroll }: { pick: Pick; bankroll: number }) {
 
   const wager = kellyWager(bankroll, kelly, fraction);
   const entryP = pick.recommendation === "FADE"
-    ? 1 - pick.implied_probability / 100
-    : pick.implied_probability / 100;
+    ? 1 - impliedProb / 100
+    : impliedProb / 100;
   const profit = entryP > 0 ? wager * ((1 - entryP) / entryP) : 0;
 
   const fractions: { key: KellyFraction; label: string }[] = [
@@ -329,8 +338,10 @@ function PickCard({
   animationIndex?: number;
 }) {
   const [expanded, setExpanded] = useState(false);
-  const kelly = calcKelly(pick.implied_probability, pick.true_odds, pick.recommendation);
-  const actualEdge = (pick.true_odds ?? 0) - (pick.implied_probability ?? 0);
+  const impliedProb = normProb(pick.implied_probability);
+  const trueOdds = normProb(pick.true_odds);
+  const kelly = calcKelly(impliedProb, trueOdds, pick.recommendation);
+  const actualEdge = trueOdds - impliedProb;
   const displayGrade = gradeFromEdge(actualEdge);
   const gs = GRADE_CONFIG[displayGrade] ?? GRADE_CONFIG["D"];
   const isBuy = pick.recommendation === "BUY";
@@ -434,13 +445,12 @@ function PickCard({
           )}
 
           <div className="space-y-2">
-            <ProbBar label="Market Implied" value={pick.implied_probability} color="bg-blue-500" />
-            <ProbBar label="AI True Estimate" value={pick.true_odds} color="bg-[#00dc82]" />
+            <ProbBar label="Market Implied" value={impliedProb} color="bg-blue-500" />
+            <ProbBar label="AI True Estimate" value={trueOdds} color="bg-[#00dc82]" />
             <div className="flex items-center justify-between text-xs pt-1">
               <span className="text-text-dim">Edge</span>
-              <span className={`font-bold ${pick.true_odds > pick.implied_probability ? "text-[#00dc82]" : "text-red-400"}`}>
-                {pick.true_odds > pick.implied_probability ? "+" : ""}
-                {(pick.true_odds - pick.implied_probability).toFixed(1)}%
+              <span className={`font-bold ${actualEdge > 0 ? "text-[#00dc82]" : "text-red-400"}`}>
+                {actualEdge > 0 ? "+" : ""}{actualEdge.toFixed(1)}pp
               </span>
             </div>
           </div>
@@ -813,8 +823,8 @@ export default function PicksPage() {
                   <p className="text-text-dim text-xs">
                     {tradingPick.platform} · {tradingPick.position} @{" "}
                     {tradingPick.position === "NO"
-                      ? 100 - (tradingPick.implied_probability ?? 50)
-                      : (tradingPick.implied_probability ?? "—")}¢
+                      ? (100 - normProb(tradingPick.implied_probability ?? 50)).toFixed(0)
+                      : normProb(tradingPick.implied_probability ?? 50).toFixed(0)}¢
                   </p>
                 </div>
 
@@ -839,9 +849,10 @@ export default function PicksPage() {
                   <span>If this wins:</span>
                   <span className="text-[#00dc82] font-bold">
                     {(() => {
+                      const normImp = normProb(tradingPick.implied_probability ?? 50);
                       const entryPrice = tradingPick.position === "NO"
-                        ? 100 - (tradingPick.implied_probability ?? 50)
-                        : (tradingPick.implied_probability ?? 50);
+                        ? 100 - normImp
+                        : normImp;
                       return `+$${((tradeStake * (100 / Math.max(entryPrice, 1))) - tradeStake).toFixed(2)} profit`;
                     })()}
                   </span>
