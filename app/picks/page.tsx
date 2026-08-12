@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import {
-  ArrowLeft,
   TrendingUp,
   TrendingDown,
   AlertCircle,
@@ -25,6 +24,7 @@ import {
   SlidersHorizontal,
   DollarSign,
   Calculator,
+  Clock,
 } from "lucide-react";
 import { UserButton, SignUpButton, useUser } from "@clerk/nextjs";
 import MobileNav from "@/components/MobileNav";
@@ -603,6 +603,89 @@ function ProbBar({ label, value, color }: { label: string; value: number; color:
   );
 }
 
+interface OpenPick {
+  id: string;
+  pick_date: string;
+  event: string;
+  platform: string;
+  grade: string;
+  edge_score: number;
+}
+
+function daysAgoLabel(pickDate: string): string {
+  const [py, pm, pd] = pickDate.split("-").map(Number);
+  const [ty, tm, td] = new Date().toISOString().split("T")[0].split("-").map(Number);
+  const diff = Math.round((Date.UTC(ty, tm - 1, td) - Date.UTC(py, pm - 1, pd)) / 86400000);
+  if (diff === 1) return "yesterday";
+  return `${diff}d ago`;
+}
+
+function StillOpenSection() {
+  const [picks, setPicks] = useState<OpenPick[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [expanded, setExpanded] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/picks/open")
+      .then((r) => r.json())
+      .then((d) => setPicks(d.picks ?? []))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading || picks.length === 0) return null;
+
+  return (
+    <div className="rounded-2xl border border-border-subtle bg-card overflow-hidden">
+      <button
+        onClick={() => setExpanded((v) => !v)}
+        className="w-full flex items-center justify-between px-4 py-3.5 hover:bg-white/[0.03] transition-colors"
+      >
+        <div className="flex items-center gap-2">
+          <Clock size={13} className="text-text-dim" />
+          <span className="text-sm text-text-dim">
+            <span className="text-white font-semibold">{picks.length}</span> still open from earlier this week
+          </span>
+        </div>
+        <ChevronDown
+          size={14}
+          className={`text-text-dim transition-transform duration-200 ${expanded ? "rotate-180" : ""}`}
+        />
+      </button>
+
+      {expanded && (
+        <div className="border-t border-white/5 divide-y divide-white/5">
+          {picks.map((pick) => {
+            const gs = GRADE_CONFIG[pick.grade] ?? GRADE_CONFIG["A"];
+            return (
+              <Link
+                key={pick.id}
+                href={`/picks/${pick.pick_date}`}
+                className="flex items-center gap-3 px-4 py-3 hover:bg-white/[0.03] transition-colors"
+              >
+                <div className={`w-8 h-8 rounded-lg ${gs.bg} border ${gs.border} flex items-center justify-center shrink-0`}>
+                  <span className={`text-xs font-black ${gs.text}`}>{pick.grade}</span>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-white text-xs font-medium leading-snug truncate">{pick.event}</p>
+                  <p className="text-text-dim text-[10px] mt-0.5">{pick.platform} · {daysAgoLabel(pick.pick_date)}</p>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="text-xs text-[#00dc82] font-medium">+{Number(pick.edge_score).toFixed(1)}%</span>
+                  <ChevronRight size={12} className="text-text-dim" />
+                </div>
+              </Link>
+            );
+          })}
+          <div className="px-4 py-2.5">
+            <p className="text-[10px] text-text-dim">These picks haven&apos;t resolved yet — tap to see full analysis and place a trade.</p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function RecordBar({ record }: { record: WinRecord }) {
   if (record.total === 0) return null;
 
@@ -1076,6 +1159,8 @@ export default function PicksPage() {
             <p className="text-center text-xs text-text-dim pt-4">
               Picks are AI-generated for informational purposes only. Not financial advice.
             </p>
+
+            {isOnLatest && !isFree && <StillOpenSection />}
           </div>
         )}
       </div>
