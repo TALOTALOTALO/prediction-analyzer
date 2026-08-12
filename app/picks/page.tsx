@@ -487,7 +487,7 @@ function PickCard({
             )}
           </div>
 
-          {pick.key_risks?.length > 0 && (
+          {Array.isArray(pick.key_risks) && pick.key_risks.length > 0 && (
             <div className="space-y-1.5">
               <p className="text-xs text-text-dim uppercase tracking-wider font-semibold">Key Risks</p>
               {pick.key_risks.map((risk, i) => (
@@ -871,7 +871,7 @@ export default function PicksPage() {
         </div>
 
         {/* Date navigation */}
-        {isSignedIn && !isFree && availableDates.length > 0 && (
+        {isSignedIn && !isFree && !!pickDate && (
           <div className="flex items-center justify-between mb-6 px-1">
             <button
               onClick={goToPrev}

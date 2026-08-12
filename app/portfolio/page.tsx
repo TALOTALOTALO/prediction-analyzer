@@ -311,7 +311,7 @@ export default function PortfolioPage() {
     setUrlInput("");
     setParseError(null);
     setParsed(null);
-    setImagePreview(null);
+    setImagePreview((prev) => { if (prev) URL.revokeObjectURL(prev); return null; });
     setConfirmMarket("");
     setConfirmPlatform("");
     setConfirmPosition("YES");
@@ -341,6 +341,10 @@ export default function PortfolioPage() {
     setImagePreview(preview);
 
     const reader = new FileReader();
+    reader.onerror = () => {
+      setParseError("Failed to read file. Please try again.");
+      setModalStep("input");
+    };
     reader.onload = async (e) => {
       const dataUrl = e.target?.result as string;
       const base64 = dataUrl.split(",")[1];

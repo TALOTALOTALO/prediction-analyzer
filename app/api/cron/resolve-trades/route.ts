@@ -148,11 +148,15 @@ export async function GET(req: NextRequest) {
   );
 
   // Also resolve manual_trades that have a market_id
-  const { data: manualPending } = await getSupabase()
+  const { data: manualPending, error: manualErr } = await getSupabase()
     .from("manual_trades")
     .select("id, platform, market_id, position")
     .is("result", null)
     .not("market_id", "is", null);
+
+  if (manualErr) {
+    console.error("Resolve manual trades fetch error:", manualErr);
+  }
 
   let manualResolved = 0;
   if (manualPending && manualPending.length > 0) {

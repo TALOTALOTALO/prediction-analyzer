@@ -240,7 +240,7 @@ function PickCard({ pick }: { pick: PickRecord }) {
           )}
 
           {/* Key risks */}
-          {pick.key_risks && pick.key_risks.length > 0 && (
+          {Array.isArray(pick.key_risks) && pick.key_risks.length > 0 && (
             <div>
               <p className="text-[10px] text-text-dim uppercase tracking-wider mb-1.5">Key Risks</p>
               <ul className="space-y-1">
