@@ -7,7 +7,6 @@ import { UserButton } from "@clerk/nextjs";
 import MobileNav from "@/components/MobileNav";
 import DashboardNav from "@/components/DashboardNav";
 import {
-  ArrowLeft,
   Plus,
   CheckCircle,
   XCircle,
@@ -269,6 +268,7 @@ export default function PortfolioPage() {
   const [portfolio, setPortfolio] = useState<Portfolio | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<"active" | "resolved">("active");
 
   // Modal state
   const [modalStep, setModalStep] = useState<ModalStep | null>(null);
@@ -432,6 +432,7 @@ export default function PortfolioPage() {
 
   const handleUpdate = useCallback((id: string, result: ManualTrade["result"]) => {
     setTrades((prev) => prev.map((t) => t.id === id ? { ...t, result } : t));
+    if (result !== null) setActiveTab("resolved");
     load();
   }, [load]);
 
@@ -494,15 +495,6 @@ export default function PortfolioPage() {
 
         {!loading && (
           <>
-            {/* Log Trade button */}
-            <button
-              onClick={() => { setInputTab("screenshot"); setModalStep("input"); }}
-              className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl border border-[#00dc82]/30 bg-[#00dc82]/5 hover:bg-[#00dc82]/10 transition-all mb-4 group"
-            >
-              <Plus size={16} className="text-[#00dc82]" />
-              <span className="text-[#00dc82] font-semibold text-sm">Log Trade</span>
-            </button>
-
             {trades.length === 0 ? (
               <div className="text-center py-20">
                 <div className="w-14 h-14 rounded-2xl bg-white/5 border border-border-subtle flex items-center justify-center mx-auto mb-4">
@@ -520,15 +512,87 @@ export default function PortfolioPage() {
                 </button>
               </div>
             ) : (
-              <div className="space-y-2">
-                {trades.map((trade) => (
-                  <TradeCard key={trade.id} trade={trade} onUpdate={handleUpdate} onDelete={handleDelete} />
-                ))}
-              </div>
+              <>
+                {/* Active / Resolved tabs */}
+                {(() => {
+                  const activeTrades = trades.filter((t) => t.result === null);
+                  const resolvedTrades = trades.filter((t) => t.result !== null);
+                  return (
+                    <>
+                      <div className="flex gap-1 p-1 rounded-xl bg-white/5 border border-white/10 mb-4">
+                        {([
+                          { key: "active", label: "Active", count: activeTrades.length },
+                          { key: "resolved", label: "Resolved", count: resolvedTrades.length },
+                        ] as const).map(({ key, label, count }) => (
+                          <button
+                            key={key}
+                            onClick={() => setActiveTab(key)}
+                            className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-sm font-medium transition-all ${
+                              activeTab === key
+                                ? "bg-[#00dc82] text-[#070d1a]"
+                                : "text-text-dim hover:text-white"
+                            }`}
+                          >
+                            {label}
+                            <span className={`text-xs px-1.5 py-0.5 rounded-full font-bold ${
+                              activeTab === key
+                                ? "bg-[#070d1a]/20 text-[#070d1a]"
+                                : "bg-white/10 text-text-dim"
+                            }`}>
+                              {count}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+
+                      {activeTab === "active" && (
+                        activeTrades.length === 0 ? (
+                          <div className="text-center py-16">
+                            <p className="text-text-dim text-sm">No pending trades.</p>
+                            <p className="text-text-dim text-xs mt-1">Tap the <span className="text-[#00dc82]">+</span> button to log one.</p>
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                            {activeTrades.map((trade) => (
+                              <TradeCard key={trade.id} trade={trade} onUpdate={handleUpdate} onDelete={handleDelete} />
+                            ))}
+                          </div>
+                        )
+                      )}
+
+                      {activeTab === "resolved" && (
+                        resolvedTrades.length === 0 ? (
+                          <div className="text-center py-16">
+                            <p className="text-text-dim text-sm">No resolved trades yet.</p>
+                            <p className="text-text-dim text-xs mt-1">Mark a trade Won, Lost, or Void to see it here.</p>
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                            {resolvedTrades.map((trade) => (
+                              <TradeCard key={trade.id} trade={trade} onUpdate={handleUpdate} onDelete={handleDelete} />
+                            ))}
+                          </div>
+                        )
+                      )}
+                    </>
+                  );
+                })()}
+              </>
             )}
           </>
         )}
       </div>
+
+      {/* Floating action button */}
+      {!loading && (
+        <button
+          onClick={() => { setInputTab("screenshot"); setModalStep("input"); }}
+          className="fixed bottom-24 right-4 sm:bottom-8 sm:right-8 z-40 flex items-center gap-2 px-4 py-3.5 sm:px-5 rounded-2xl bg-[#00dc82] text-[#070d1a] font-bold text-sm shadow-lg shadow-[#00dc82]/20 hover:brightness-110 active:scale-95 transition-all"
+        >
+          <Plus size={18} />
+          <span className="hidden sm:inline">Log Trade</span>
+        </button>
+      )}
 
       {/* Modal overlay */}
       {modalStep !== null && (
