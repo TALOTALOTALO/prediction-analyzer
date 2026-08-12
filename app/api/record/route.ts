@@ -10,7 +10,7 @@ export async function GET() {
     supabase
       .from("daily_picks")
       .select(
-        "id, pick_date, platform, event, position, recommendation, grade, edge_score, result, odds, implied_probability, market_id"
+        "id, pick_date, platform, event, position, recommendation, grade, grade_label, edge_score, true_odds, result, odds, implied_probability, market_id, summary, bull_case, bear_case, key_risks, market_inefficiency, recommendation_reason, confidence_level"
       )
       .not("result", "is", null)
       .not("market_id", "is", null)

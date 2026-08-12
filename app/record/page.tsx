@@ -14,6 +14,9 @@ import {
   ShieldCheck,
   Zap,
   Clock,
+  ChevronDown,
+  ChevronUp,
+  AlertTriangle,
 } from "lucide-react";
 
 interface PickRecord {
@@ -24,11 +27,20 @@ interface PickRecord {
   position: string;
   recommendation: string;
   grade: string;
+  grade_label: string | null;
   edge_score: number;
+  true_odds: number | null;
   result: "won" | "lost" | "void";
   odds: string;
   implied_probability: number;
   market_id: string;
+  summary: string | null;
+  bull_case: string | null;
+  bear_case: string | null;
+  key_risks: string[] | null;
+  market_inefficiency: string | null;
+  recommendation_reason: string | null;
+  confidence_level: string | null;
 }
 
 interface PendingPick {
@@ -91,6 +103,179 @@ const GRADE_TEXT: Record<string, string> = {
   D: "text-orange-400",
   F: "text-red-400",
 };
+
+function normProb(p: number | null | undefined): number {
+  const v = p ?? 0;
+  return v > 0 && v < 1 ? v * 100 : v;
+}
+
+function PickCard({ pick }: { pick: PickRecord }) {
+  const [expanded, setExpanded] = useState(false);
+  const isBuy = pick.recommendation === "BUY";
+  const gradeColor = GRADE_TEXT[pick.grade] ?? "text-blue-400";
+  const verifyUrl = marketVerifyUrl(pick.platform, pick.market_id);
+  const dateLabel = new Date(pick.pick_date + "T12:00:00").toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+  });
+  const impliedProb = normProb(pick.implied_probability);
+  const trueOdds = normProb(pick.true_odds);
+  const hasAnalysis = !!(pick.summary || pick.bull_case || pick.bear_case);
+
+  return (
+    <div className="rounded-xl border border-border-subtle bg-card overflow-hidden">
+      {/* Header row — always visible */}
+      <div className="p-4">
+        <div className="flex items-start gap-3">
+          {/* Grade */}
+          <div className="shrink-0 text-center pt-0.5">
+            <span className={`text-lg font-black ${gradeColor}`}>{pick.grade}</span>
+          </div>
+
+          {/* Main content */}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-1 flex-wrap">
+              <span className="text-xs text-text-dim">{pick.platform}</span>
+              <span className="text-xs text-text-dim">·</span>
+              <span className="text-xs text-text-dim">{dateLabel}</span>
+              <ResultBadge result={pick.result} />
+            </div>
+            <p className="text-white text-sm font-medium leading-snug mb-2">{pick.event}</p>
+            <div className="flex items-center gap-3 flex-wrap">
+              <div
+                className={`flex items-center gap-1 text-xs font-bold px-2 py-1 rounded-md ${
+                  isBuy ? "bg-[#00dc82]/10 text-[#00dc82]" : "bg-red-500/10 text-red-400"
+                }`}
+              >
+                {isBuy ? <TrendingUp size={11} /> : <TrendingDown size={11} />}
+                {pick.recommendation} {pick.position}
+              </div>
+              {pick.odds && <span className="text-xs text-text-dim">{pick.odds}</span>}
+              {pick.edge_score !== null && Math.abs(pick.edge_score) <= 50 && (
+                <span className={`text-xs font-medium ${pick.edge_score > 0 ? "text-[#00dc82]" : "text-red-400"}`}>
+                  {pick.edge_score > 0 ? "+" : ""}{pick.edge_score?.toFixed(1)}pp
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Actions */}
+          <div className="flex items-center gap-1.5 shrink-0">
+            <a
+              href={verifyUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1 text-xs text-text-dim hover:text-white transition-colors border border-border-subtle hover:border-white/20 px-2.5 py-1.5 rounded-lg"
+              title={`Verify this result on ${pick.platform}`}
+            >
+              <ExternalLink size={11} />
+              Verify
+            </a>
+            {hasAnalysis && (
+              <button
+                onClick={() => setExpanded((v) => !v)}
+                className="flex items-center gap-1 text-xs text-text-dim hover:text-white transition-colors border border-border-subtle hover:border-white/20 px-2.5 py-1.5 rounded-lg"
+              >
+                {expanded ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
+                {expanded ? "Less" : "Analysis"}
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Expandable analysis */}
+      {expanded && hasAnalysis && (
+        <div className="border-t border-white/5 px-4 pb-4 pt-3 space-y-4">
+          {/* Probability bars */}
+          {(impliedProb > 0 || trueOdds > 0) && (
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <p className="text-[10px] text-text-dim uppercase tracking-wider mb-1.5">Market Implied</p>
+                <div className="h-1.5 bg-white/10 rounded-full overflow-hidden mb-1">
+                  <div
+                    className="h-full bg-white/40 rounded-full transition-all"
+                    style={{ width: `${Math.min(impliedProb, 100)}%` }}
+                  />
+                </div>
+                <p className="text-xs text-white font-medium">{impliedProb.toFixed(1)}%</p>
+              </div>
+              <div>
+                <p className="text-[10px] text-text-dim uppercase tracking-wider mb-1.5">AI True Estimate</p>
+                <div className="h-1.5 bg-white/10 rounded-full overflow-hidden mb-1">
+                  <div
+                    className="h-full bg-[#00dc82] rounded-full transition-all"
+                    style={{ width: `${Math.min(trueOdds, 100)}%` }}
+                  />
+                </div>
+                <p className="text-xs text-[#00dc82] font-medium">{trueOdds.toFixed(1)}%</p>
+              </div>
+            </div>
+          )}
+
+          {/* Summary */}
+          {pick.summary && (
+            <div>
+              <p className="text-[10px] text-text-dim uppercase tracking-wider mb-1.5">Summary</p>
+              <p className="text-xs text-white/80 leading-relaxed">{pick.summary}</p>
+            </div>
+          )}
+
+          {/* Bull / Bear */}
+          {(pick.bull_case || pick.bear_case) && (
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              {pick.bull_case && (
+                <div className="rounded-lg bg-[#00dc82]/5 border border-[#00dc82]/15 p-3">
+                  <p className="text-[10px] text-[#00dc82] uppercase tracking-wider font-semibold mb-1">Bull Case</p>
+                  <p className="text-xs text-white/80 leading-relaxed">{pick.bull_case}</p>
+                </div>
+              )}
+              {pick.bear_case && (
+                <div className="rounded-lg bg-red-500/5 border border-red-500/15 p-3">
+                  <p className="text-[10px] text-red-400 uppercase tracking-wider font-semibold mb-1">Bear Case</p>
+                  <p className="text-xs text-white/80 leading-relaxed">{pick.bear_case}</p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Key risks */}
+          {pick.key_risks && pick.key_risks.length > 0 && (
+            <div>
+              <p className="text-[10px] text-text-dim uppercase tracking-wider mb-1.5">Key Risks</p>
+              <ul className="space-y-1">
+                {pick.key_risks.map((risk, i) => (
+                  <li key={i} className="flex items-start gap-2 text-xs text-white/70">
+                    <AlertTriangle size={10} className="text-yellow-400 shrink-0 mt-0.5" />
+                    {risk}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* Market inefficiency */}
+          {pick.market_inefficiency && (
+            <div>
+              <p className="text-[10px] text-text-dim uppercase tracking-wider mb-1.5">Market Inefficiency</p>
+              <p className="text-xs text-white/80 leading-relaxed">{pick.market_inefficiency}</p>
+            </div>
+          )}
+
+          {/* Grade label + confidence */}
+          <div className="flex items-center gap-3 pt-1 border-t border-white/5">
+            {pick.grade_label && (
+              <span className={`text-xs font-semibold ${gradeColor}`}>{pick.grade_label}</span>
+            )}
+            {pick.confidence_level && (
+              <span className="text-xs text-text-dim">· {pick.confidence_level} Confidence</span>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function RecordPage() {
   const [record, setRecord] = useState<WinRecord | null>(null);
@@ -259,79 +444,9 @@ export default function RecordPage() {
               <div className="text-center py-16 text-text-dim text-sm">No resolved picks yet.</div>
             ) : (
               <div className="space-y-3">
-                {filtered.map((pick) => {
-                  const isBuy = pick.recommendation === "BUY";
-                  const gradeColor = GRADE_TEXT[pick.grade] ?? "text-blue-400";
-                  const verifyUrl = marketVerifyUrl(pick.platform, pick.market_id);
-                  const dateLabel = new Date(pick.pick_date + "T12:00:00").toLocaleDateString(
-                    "en-US",
-                    { month: "short", day: "numeric" }
-                  );
-
-                  return (
-                    <div
-                      key={pick.id}
-                      className="rounded-xl border border-border-subtle bg-card p-4"
-                    >
-                      <div className="flex items-start gap-3">
-                        {/* Grade */}
-                        <div className="shrink-0 text-center pt-0.5">
-                          <span className={`text-lg font-black ${gradeColor}`}>{pick.grade}</span>
-                        </div>
-
-                        {/* Main content */}
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1 flex-wrap">
-                            <span className="text-xs text-text-dim">{pick.platform}</span>
-                            <span className="text-xs text-text-dim">·</span>
-                            <span className="text-xs text-text-dim">{dateLabel}</span>
-                            <ResultBadge result={pick.result} />
-                          </div>
-                          <p className="text-white text-sm font-medium leading-snug mb-2">
-                            {pick.event}
-                          </p>
-                          <div className="flex items-center gap-3 flex-wrap">
-                            <div
-                              className={`flex items-center gap-1 text-xs font-bold px-2 py-1 rounded-md ${
-                                isBuy
-                                  ? "bg-[#00dc82]/10 text-[#00dc82]"
-                                  : "bg-red-500/10 text-red-400"
-                              }`}
-                            >
-                              {isBuy ? <TrendingUp size={11} /> : <TrendingDown size={11} />}
-                              {pick.recommendation} {pick.position}
-                            </div>
-                            {pick.odds && (
-                              <span className="text-xs text-text-dim">{pick.odds}</span>
-                            )}
-                            {pick.edge_score !== null && Math.abs(pick.edge_score) <= 50 && (
-                              <span
-                                className={`text-xs font-medium ${
-                                  pick.edge_score > 0 ? "text-[#00dc82]" : "text-red-400"
-                                }`}
-                              >
-                                {pick.edge_score > 0 ? "+" : ""}
-                                {pick.edge_score?.toFixed(1)}pp
-                              </span>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Verify link */}
-                        <a
-                          href={verifyUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="shrink-0 flex items-center gap-1 text-xs text-text-dim hover:text-white transition-colors border border-border-subtle hover:border-white/20 px-2.5 py-1.5 rounded-lg"
-                          title={`Verify this result on ${pick.platform}`}
-                        >
-                          <ExternalLink size={11} />
-                          Verify
-                        </a>
-                      </div>
-                    </div>
-                  );
-                })}
+                {filtered.map((pick) => (
+                  <PickCard key={pick.id} pick={pick} />
+                ))}
               </div>
             )}
 
