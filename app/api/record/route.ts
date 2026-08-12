@@ -6,7 +6,7 @@ export async function GET() {
 
   // Only picks with market_id so every result can be independently verified
   // on Kalshi or Polymarket by anyone
-  const [resolvedRes, oldestRes] = await Promise.all([
+  const [resolvedRes, oldestRes, pendingRes] = await Promise.all([
     supabase
       .from("daily_picks")
       .select(
@@ -21,6 +21,12 @@ export async function GET() {
       .not("market_id", "is", null)
       .order("pick_date", { ascending: true })
       .limit(1),
+    supabase
+      .from("daily_picks")
+      .select("id, pick_date, platform, event, position, recommendation, grade, odds, implied_probability, market_id")
+      .is("result", null)
+      .not("market_id", "is", null)
+      .order("pick_date", { ascending: false }),
   ]);
 
   if (resolvedRes.error) {
@@ -46,5 +52,7 @@ export async function GET() {
     },
     picks,
     trackingSince,
+    pendingPicks: pendingRes.data ?? [],
+    pendingCount: pendingRes.data?.length ?? 0,
   });
 }

@@ -73,7 +73,18 @@ const GRADE_CONFIG: Record<string, { border: string; text: string; bg: string; g
   A: { border: "border-[#00c86e]", text: "text-[#00c86e]", bg: "bg-[#00c86e]/10", glow: "shadow-[0_0_20px_rgba(0,200,110,0.12)]" },
   B: { border: "border-blue-500", text: "text-blue-400", bg: "bg-blue-500/10", glow: "" },
   C: { border: "border-yellow-500", text: "text-yellow-400", bg: "bg-yellow-500/10", glow: "" },
+  D: { border: "border-orange-500", text: "text-orange-400", bg: "bg-orange-500/10", glow: "" },
+  F: { border: "border-red-500", text: "text-red-400", bg: "bg-red-500/10", glow: "" },
 };
+
+function gradeFromEdge(edge: number): string {
+  if (edge >= 20) return "S";
+  if (edge >= 10) return "A";
+  if (edge >= 5) return "B";
+  if (edge >= 2) return "C";
+  if (edge > 0) return "D";
+  return "F";
+}
 
 function ResultBadge({ result }: { result: Pick["result"] }) {
   if (result === "won") return (
@@ -318,9 +329,10 @@ function PickCard({
   animationIndex?: number;
 }) {
   const [expanded, setExpanded] = useState(false);
-  const gs = GRADE_CONFIG[pick.grade] ?? GRADE_CONFIG["B"];
   const kelly = calcKelly(pick.implied_probability, pick.true_odds, pick.recommendation);
   const actualEdge = (pick.true_odds ?? 0) - (pick.implied_probability ?? 0);
+  const displayGrade = gradeFromEdge(actualEdge);
+  const gs = GRADE_CONFIG[displayGrade] ?? GRADE_CONFIG["D"];
   const isBuy = pick.recommendation === "BUY";
   const hasRealEdge = kelly.hasEdge;
 
@@ -336,7 +348,7 @@ function PickCard({
         <div className="flex items-start gap-4">
           <div className="shrink-0 text-center">
             <div className={`w-14 h-14 rounded-xl border ${gs.border} ${gs.bg} flex items-center justify-center mb-1`}>
-              <span className={`text-2xl font-black ${gs.text}`}>{pick.grade}</span>
+              <span className={`text-2xl font-black ${gs.text}`}>{displayGrade}</span>
             </div>
             <span className="text-xs text-text-dim">{actualEdge > 0 ? "+" : ""}{actualEdge.toFixed(1)}pp edge</span>
           </div>

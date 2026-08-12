@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { getSupabase } from "@/lib/supabase";
 
-const FREE_FIELDS = "id, pick_date, platform, event, position, odds, implied_probability, category, grade, recommendation, result, market_id";
+const FREE_FIELDS = "id, pick_date, created_at, platform, event, position, odds, implied_probability, category, grade, grade_label, recommendation, result, market_id";
 
 export async function GET(req: NextRequest) {
   const { userId } = await auth();
