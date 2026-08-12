@@ -129,12 +129,26 @@ Write a 500-700 word evergreen playbook guide. Return ONLY a JSON object (no mar
     .map((b) => (b.type === "text" ? b.text : ""))
     .join("");
 
+  const VALID_CATEGORIES = new Set(["Strategy", "Platform Guides", "Market Analysis", "Fading", "Beginner Tips"]);
+
   let article: { title: string; excerpt: string; category: string; readTime: number; body: string };
   try {
-    article = JSON.parse(text.replace(/```json\n?|\n?```/g, "").trim());
+    const parsed = JSON.parse(text.replace(/```json\n?|\n?```/g, "").trim());
+    article = {
+      title: String(parsed.title ?? "").trim(),
+      excerpt: String(parsed.excerpt ?? "").trim(),
+      category: VALID_CATEGORIES.has(parsed.category) ? parsed.category : "Strategy",
+      readTime: Math.max(1, Math.round(Number(parsed.readTime) || 5)),
+      body: String(parsed.body ?? "").trim(),
+    };
   } catch {
     console.error("Failed to parse playbook article:", text.slice(0, 500));
     return NextResponse.json({ error: "Failed to parse article from Claude" }, { status: 422 });
+  }
+
+  if (!article.title || !article.body) {
+    console.error("Playbook article missing required fields:", { title: !!article.title, body: !!article.body });
+    return NextResponse.json({ error: "Article missing required fields" }, { status: 422 });
   }
 
   const slug = toSlug(article.title, today);
