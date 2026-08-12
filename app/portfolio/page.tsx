@@ -501,15 +501,9 @@ export default function PortfolioPage() {
                   <TrendingUp size={24} className="text-text-dim" />
                 </div>
                 <h2 className="text-lg font-semibold mb-2">No trades yet</h2>
-                <p className="text-text-dim text-sm mb-6">
-                  Upload a screenshot or paste a market URL to log your first trade.
+                <p className="text-text-dim text-sm">
+                  Tap <span className="text-[#00dc82] font-semibold">+</span> to log your first trade.
                 </p>
-                <button
-                  onClick={() => { setInputTab("screenshot"); setModalStep("input"); }}
-                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#00dc82] text-[#070d1a] font-semibold text-sm hover:brightness-110 transition-all"
-                >
-                  <Plus size={14} /> Log Trade
-                </button>
               </div>
             ) : (
               <>

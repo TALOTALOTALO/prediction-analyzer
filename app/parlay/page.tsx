@@ -760,7 +760,7 @@ function ParlayBuilderTab() {
   const [buildResult, setBuildResult] = useState<ParlayBuildResult | null>(null);
   const [buildError, setBuildError] = useState<string | null>(null);
 
-  useEffect(() => {
+  const loadPicks = useCallback(() => {
     setPicksLoading(true);
     setPicksError(null);
     fetch("/api/picks")
@@ -774,6 +774,8 @@ function ParlayBuilderTab() {
       .catch(() => setPicksError("Failed to load today's picks."))
       .finally(() => setPicksLoading(false));
   }, []);
+
+  useEffect(() => { loadPicks(); }, [loadPicks]);
 
   const platformPicks = picks.filter((p) => p.platform === buildPlatform);
 
@@ -860,9 +862,17 @@ function ParlayBuilderTab() {
       )}
 
       {picksError && (
-        <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/30 flex items-start gap-3">
-          <AlertCircle size={16} className="text-red-400 mt-0.5 shrink-0" />
-          <p className="text-red-300 text-sm">{picksError}</p>
+        <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/30 flex items-start justify-between gap-3">
+          <div className="flex items-start gap-3">
+            <AlertCircle size={16} className="text-red-400 mt-0.5 shrink-0" />
+            <p className="text-red-300 text-sm">{picksError}</p>
+          </div>
+          <button
+            onClick={loadPicks}
+            className="shrink-0 text-xs text-red-400 border border-red-500/40 px-2.5 py-1 rounded-lg hover:bg-red-500/10 transition-colors"
+          >
+            Retry
+          </button>
         </div>
       )}
 
