@@ -5,6 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { UserButton } from "@clerk/nextjs";
 import MobileNav from "@/components/MobileNav";
+import DashboardNav from "@/components/DashboardNav";
 import {
   ArrowLeft,
   Plus,
@@ -448,21 +449,7 @@ export default function PortfolioPage() {
     <div className="min-h-screen bg-bg">
       {!loading && !error && <MobileNav activeTab="portfolio" />}
 
-      <nav className="border-b border-border-subtle px-6 py-4">
-        <div className="max-w-3xl mx-auto flex items-center justify-between">
-          <Link href="/picks" className="flex items-center gap-2 text-text-dim hover:text-white transition-colors">
-            <ArrowLeft size={16} />
-            <span className="text-sm">Picks</span>
-          </Link>
-          <Link href="/" className="flex items-center gap-2">
-            <Image src="/logo-icon.png" alt="FadeMe" width={24} height={24} className="rounded-md" />
-            <span className="text-white font-semibold tracking-tight">
-              Fade<span className="text-[#00dc82]">Me</span>
-            </span>
-          </Link>
-          <UserButton />
-        </div>
-      </nav>
+      <DashboardNav activeTab="portfolio" />
 
       <div className="max-w-3xl mx-auto px-4 py-8 pb-32 sm:pb-10">
         {portfolio && (

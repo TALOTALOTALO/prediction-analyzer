@@ -6,6 +6,7 @@ import Image from "next/image";
 import { useSearchParams } from "next/navigation";
 import { UserButton } from "@clerk/nextjs";
 import MobileNav from "@/components/MobileNav";
+import DashboardNav from "@/components/DashboardNav";
 import {
   Upload,
   ArrowLeft,
@@ -328,53 +329,7 @@ function AnalyzePageInner() {
   return (
     <div className="min-h-screen bg-bg">
       {subStatus === "active" && <MobileNav activeTab="analyze" />}
-      {/* Nav */}
-      <nav className="border-b border-border-subtle px-6 py-4">
-        <div className="max-w-6xl mx-auto flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2 text-text-dim hover:text-white transition-colors">
-            <ArrowLeft size={16} />
-            <span className="text-sm">Back</span>
-          </Link>
-          <Link href="/" className="flex items-center gap-2">
-            <Image src="/logo-icon.png" alt="FadeMe" width={24} height={24} className="rounded-md" />
-            <span className="text-white font-semibold tracking-tight">
-              Fade<span className="text-green-bright">Me</span>
-            </span>
-          </Link>
-          <div className="flex items-center gap-3">
-            {subStatus === "active" && (
-              <div className="hidden sm:flex items-center gap-3">
-                <Link href="/picks" className="flex items-center gap-1 text-xs text-[#00dc82] hover:brightness-110 transition-colors font-medium">
-                  <Sparkles size={12} />
-                  Today&apos;s Picks
-                </Link>
-                <Link href="/coach" className="flex items-center gap-1 text-xs text-text-dim hover:text-white transition-colors">
-                  AI Coach
-                </Link>
-                <Link href="/portfolio" className="text-xs text-text-dim hover:text-white transition-colors">
-                  Portfolio
-                </Link>
-                <Link href="/history" className="text-xs text-text-dim hover:text-white transition-colors">
-                  History
-                </Link>
-                <button
-                  onClick={openPortal}
-                  disabled={portalLoading}
-                  className="flex items-center gap-1.5 text-xs text-text-dim hover:text-white transition-colors disabled:opacity-50"
-                >
-                  {portalLoading ? (
-                    <span className="inline-block w-3 h-3 border border-white/20 border-t-white/60 rounded-full animate-spin" />
-                  ) : (
-                    <Settings size={13} />
-                  )}
-                  Manage Plan
-                </button>
-              </div>
-            )}
-            <UserButton />
-          </div>
-        </div>
-      </nav>
+      <DashboardNav activeTab="analyze" />
 
       <div className="max-w-4xl mx-auto px-4 py-10 pb-24 sm:pb-10">
         {/* Success banner */}

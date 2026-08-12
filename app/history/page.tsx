@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { UserButton } from "@clerk/nextjs";
 import MobileNav from "@/components/MobileNav";
+import DashboardNav from "@/components/DashboardNav";
 
 interface AnalysisRow {
   id: string;
@@ -344,21 +345,7 @@ export default function HistoryPage() {
   return (
     <div className="min-h-screen bg-bg">
       <MobileNav activeTab="history" />
-      <nav className="border-b border-border-subtle px-6 py-4">
-        <div className="max-w-3xl mx-auto flex items-center justify-between">
-          <Link href="/analyze" className="flex items-center gap-2 text-text-dim hover:text-white transition-colors">
-            <ArrowLeft size={16} />
-            <span className="text-sm">Analyze</span>
-          </Link>
-          <Link href="/" className="flex items-center gap-2">
-            <Image src="/logo-icon.png" alt="FadeMe" width={24} height={24} className="rounded-md" />
-            <span className="text-white font-semibold tracking-tight">
-              Fade<span className="text-[#00dc82]">Me</span>
-            </span>
-          </Link>
-          <UserButton />
-        </div>
-      </nav>
+      <DashboardNav activeTab="history" />
 
       {selectedRow && (
         <AnalysisModal

@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 import { UserButton, SignUpButton, useUser } from "@clerk/nextjs";
 import MobileNav from "@/components/MobileNav";
+import DashboardNav from "@/components/DashboardNav";
 import { calcKelly, kellyWager, useBankroll, type KellyFraction } from "@/hooks/useKelly";
 import { getMarketUrl } from "@/lib/market-url";
 
@@ -768,29 +769,7 @@ export default function PicksPage() {
 
   return (
     <div className="min-h-screen bg-bg">
-      <nav className="border-b border-border-subtle px-6 py-4">
-        <div className="max-w-3xl mx-auto flex items-center justify-between">
-          <Link href="/analyze" className="flex items-center gap-2 text-text-dim hover:text-white transition-colors">
-            <ArrowLeft size={16} />
-            <span className="text-sm">Analyze</span>
-          </Link>
-          <Link href="/" className="flex items-center gap-2">
-            <Image src="/logo-icon.png" alt="FadeMe" width={24} height={24} className="rounded-md" />
-            <span className="text-white font-semibold tracking-tight">
-              Fade<span className="text-[#00dc82]">Me</span>
-            </span>
-          </Link>
-          <div className="flex items-center gap-3">
-            {isLoaded && isSignedIn && (
-              <Link href="/portfolio" className="flex items-center gap-1.5 text-sm text-text-dim hover:text-white transition-colors">
-                <BarChart2 size={15} />
-                <span className="hidden sm:inline">Portfolio</span>
-              </Link>
-            )}
-            <UserButton />
-          </div>
-        </div>
-      </nav>
+      <DashboardNav activeTab="picks" />
 
       {/* Paper Trade Modal */}
       {tradingPick && (
