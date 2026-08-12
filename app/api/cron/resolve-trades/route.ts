@@ -147,5 +147,53 @@ export async function GET(req: NextRequest) {
     })
   );
 
-  return NextResponse.json({ message: "Resolution complete", resolved, checked: pending.length });
+  // Also resolve manual_trades that have a market_id
+  const { data: manualPending } = await getSupabase()
+    .from("manual_trades")
+    .select("id, platform, market_id, position")
+    .is("result", null)
+    .not("market_id", "is", null);
+
+  let manualResolved = 0;
+  if (manualPending && manualPending.length > 0) {
+    await Promise.allSettled(
+      manualPending.map(async (trade) => {
+        const marketId = trade.market_id as string;
+        const platform = trade.platform as string;
+
+        let marketResult: "yes" | "no" | null = null;
+        if (platform === "Kalshi") {
+          marketResult = await checkKalshiResult(marketId);
+        } else if (platform === "Polymarket") {
+          marketResult = await checkPolymarketResult(marketId);
+        }
+        if (!marketResult) return;
+
+        const tradeWon =
+          (trade.position === "YES" && marketResult === "yes") ||
+          (trade.position === "NO" && marketResult === "no");
+
+        const tradeResult: "won" | "lost" = tradeWon ? "won" : "lost";
+
+        const { error: updateErr } = await getSupabase()
+          .from("manual_trades")
+          .update({ result: tradeResult })
+          .eq("id", trade.id);
+
+        if (updateErr) {
+          console.error(`Failed to resolve manual trade ${trade.id}:`, updateErr);
+        } else {
+          manualResolved++;
+        }
+      })
+    );
+  }
+
+  return NextResponse.json({
+    message: "Resolution complete",
+    resolved,
+    checked: pending.length,
+    manualResolved,
+    manualChecked: manualPending?.length ?? 0,
+  });
 }

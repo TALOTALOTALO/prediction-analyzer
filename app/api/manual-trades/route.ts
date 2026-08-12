@@ -78,6 +78,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Stake must be a positive number" }, { status: 400 });
   }
 
+  const { market_id } = body;
+
   const { data, error } = await getSupabase()
     .from("manual_trades")
     .insert({
@@ -88,6 +90,7 @@ export async function POST(req: NextRequest) {
       entry_price: price,
       stake: amount,
       notes: typeof notes === "string" && notes.trim() ? notes.trim() : null,
+      market_id: typeof market_id === "string" && market_id.trim() ? market_id.trim() : null,
     })
     .select()
     .single();

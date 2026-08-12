@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { UserButton } from "@clerk/nextjs";
@@ -8,8 +8,6 @@ import MobileNav from "@/components/MobileNav";
 import {
   ArrowLeft,
   Plus,
-  ChevronDown,
-  ChevronUp,
   CheckCircle,
   XCircle,
   MinusCircle,
@@ -17,7 +15,13 @@ import {
   Trash2,
   TrendingUp,
   TrendingDown,
-  ChevronsUpDown,
+  Camera,
+  Link2,
+  X,
+  Loader2,
+  ChevronDown,
+  ChevronUp,
+  RefreshCw,
 } from "lucide-react";
 
 interface ManualTrade {
@@ -30,6 +34,7 @@ interface ManualTrade {
   result: "won" | "lost" | "void" | null;
   notes: string | null;
   created_at: string;
+  market_id: string | null;
 }
 
 interface Portfolio {
@@ -42,13 +47,25 @@ interface Portfolio {
   winRate: number | null;
 }
 
+interface ParsedTrade {
+  platform: string | null;
+  market: string | null;
+  position: string | null;
+  entry_price: number | null;
+  stake: number | null;
+  market_id: string | null;
+}
+
+type ModalStep = "input" | "parsing" | "confirm" | "saving";
+type InputTab = "screenshot" | "url";
+
 const PLATFORMS = ["Kalshi", "Polymarket", "PredictIt", "FanDuel", "Robinhood", "Other"];
 
 function tradePnl(trade: ManualTrade): number | null {
   if (trade.result === null) return null;
-  if (trade.result === "won") return trade.stake * (100 - trade.entry_price) / trade.entry_price;
+  if (trade.result === "won") return (trade.stake * (100 - trade.entry_price)) / trade.entry_price;
   if (trade.result === "lost") return -trade.stake;
-  return 0; // void
+  return 0;
 }
 
 function fmt(n: number): string {
@@ -96,6 +113,7 @@ function TradeCard({
 
   const pnl = tradePnl(trade);
   const pnlPositive = pnl !== null && pnl >= 0;
+  const autoResolves = trade.market_id && trade.result === null;
 
   const mark = async (result: ManualTrade["result"]) => {
     setSaving(true);
@@ -123,7 +141,7 @@ function TradeCard({
   };
 
   return (
-    <div className="rounded-2xl border border-border-subtle bg-card overflow-hidden">
+    <div className="rounded-2xl border border-border-subtle bg-card overflow-hidden transition-all">
       <button
         onClick={() => setExpanded((v) => !v)}
         className="w-full text-left px-5 py-4 hover:bg-white/[0.02] transition-colors"
@@ -131,11 +149,18 @@ function TradeCard({
         <div className="flex items-center gap-3">
           <div className="flex-1 min-w-0">
             <p className="text-white text-sm font-medium leading-snug truncate">{trade.market}</p>
-            <p className="text-text-dim text-xs mt-0.5">
-              {[trade.platform, `${trade.position} @ ${trade.entry_price.toFixed(0)}¢`, `$${trade.stake.toLocaleString()} staked`]
-                .filter(Boolean)
-                .join(" · ")}
-            </p>
+            <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+              <p className="text-text-dim text-xs">
+                {[trade.platform, `${trade.position} @ ${trade.entry_price.toFixed(0)}¢`, `$${trade.stake.toLocaleString()} staked`]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </p>
+              {autoResolves && (
+                <span className="flex items-center gap-1 text-[10px] text-blue-400/80 bg-blue-500/10 px-1.5 py-0.5 rounded-full">
+                  <RefreshCw size={8} /> Auto-resolving
+                </span>
+              )}
+            </div>
           </div>
           <div className="flex items-center gap-2 shrink-0">
             {pnl !== null && trade.result !== "void" ? (
@@ -153,26 +178,52 @@ function TradeCard({
       {expanded && (
         <div className="border-t border-white/5 px-5 pb-5 pt-4 space-y-4">
           <div className="flex gap-4 text-xs flex-wrap">
-            {trade.platform && <div><p className="text-text-dim mb-0.5">Platform</p><p className="text-white font-medium">{trade.platform}</p></div>}
-            <div><p className="text-text-dim mb-0.5">Position</p><p className="text-white font-medium">{trade.position}</p></div>
-            <div><p className="text-text-dim mb-0.5">Entry Price</p><p className="text-white font-medium">{trade.entry_price.toFixed(0)}¢</p></div>
-            <div><p className="text-text-dim mb-0.5">Staked</p><p className="text-white font-medium">${trade.stake.toLocaleString()}</p></div>
+            {trade.platform && (
+              <div>
+                <p className="text-text-dim mb-0.5">Platform</p>
+                <p className="text-white font-medium">{trade.platform}</p>
+              </div>
+            )}
+            <div>
+              <p className="text-text-dim mb-0.5">Position</p>
+              <p className="text-white font-medium">{trade.position}</p>
+            </div>
+            <div>
+              <p className="text-text-dim mb-0.5">Entry Price</p>
+              <p className="text-white font-medium">{trade.entry_price.toFixed(0)}¢</p>
+            </div>
+            <div>
+              <p className="text-text-dim mb-0.5">Staked</p>
+              <p className="text-white font-medium">${trade.stake.toLocaleString()}</p>
+            </div>
             {trade.result === "won" && pnl !== null && (
-              <div><p className="text-text-dim mb-0.5">Profit</p><p className="text-[#00dc82] font-bold">+${fmt(pnl)}</p></div>
+              <div>
+                <p className="text-text-dim mb-0.5">Profit</p>
+                <p className="text-[#00dc82] font-bold">+${fmt(pnl)}</p>
+              </div>
             )}
             {trade.result === "lost" && pnl !== null && (
-              <div><p className="text-text-dim mb-0.5">Loss</p><p className="text-red-400 font-bold">-${fmt(Math.abs(pnl))}</p></div>
+              <div>
+                <p className="text-text-dim mb-0.5">Loss</p>
+                <p className="text-red-400 font-bold">-${fmt(Math.abs(pnl))}</p>
+              </div>
             )}
             {trade.result === null && (
               <div>
                 <p className="text-text-dim mb-0.5">If wins</p>
-                <p className="text-[#00dc82] font-medium">+${fmt(trade.stake * (100 - trade.entry_price) / trade.entry_price)}</p>
+                <p className="text-[#00dc82] font-medium">
+                  +${fmt((trade.stake * (100 - trade.entry_price)) / trade.entry_price)}
+                </p>
               </div>
             )}
           </div>
 
-          {trade.notes && (
-            <p className="text-xs text-text-dim italic leading-snug">{trade.notes}</p>
+          {trade.notes && <p className="text-xs text-text-dim italic leading-snug">{trade.notes}</p>}
+
+          {autoResolves && (
+            <p className="text-xs text-blue-400/70">
+              This trade will auto-resolve once the market settles.
+            </p>
           )}
 
           <div className="flex items-center justify-between gap-3 pt-1">
@@ -212,18 +263,31 @@ function TradeCard({
   );
 }
 
-const EMPTY_FORM = { market: "", platform: "", position: "YES", entry_price: "", stake: "", notes: "" };
-
 export default function PortfolioPage() {
   const [trades, setTrades] = useState<ManualTrade[]>([]);
   const [portfolio, setPortfolio] = useState<Portfolio | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [formOpen, setFormOpen] = useState(false);
-  const [form, setForm] = useState(EMPTY_FORM);
-  const [submitting, setSubmitting] = useState(false);
-  const [formError, setFormError] = useState<string | null>(null);
+  // Modal state
+  const [modalStep, setModalStep] = useState<ModalStep | null>(null);
+  const [inputTab, setInputTab] = useState<InputTab>("screenshot");
+  const [urlInput, setUrlInput] = useState("");
+  const [parseError, setParseError] = useState<string | null>(null);
+  const [parsed, setParsed] = useState<ParsedTrade | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+
+  // Confirm form state
+  const [confirmMarket, setConfirmMarket] = useState("");
+  const [confirmPlatform, setConfirmPlatform] = useState("");
+  const [confirmPosition, setConfirmPosition] = useState("YES");
+  const [confirmPrice, setConfirmPrice] = useState("");
+  const [confirmStake, setConfirmStake] = useState("");
+  const [confirmNotes, setConfirmNotes] = useState("");
+  const [confirmMarketId, setConfirmMarketId] = useState<string | null>(null);
+  const [confirmError, setConfirmError] = useState<string | null>(null);
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
     try {
@@ -241,42 +305,123 @@ export default function PortfolioPage() {
 
   useEffect(() => { load(); }, [load]);
 
-  const submit = async () => {
-    setFormError(null);
-    const price = parseFloat(form.entry_price);
-    const amount = parseFloat(form.stake);
+  const closeModal = () => {
+    setModalStep(null);
+    setUrlInput("");
+    setParseError(null);
+    setParsed(null);
+    setImagePreview(null);
+    setConfirmMarket("");
+    setConfirmPlatform("");
+    setConfirmPosition("YES");
+    setConfirmPrice("");
+    setConfirmStake("");
+    setConfirmNotes("");
+    setConfirmMarketId(null);
+    setConfirmError(null);
+  };
 
-    if (!form.market.trim()) { setFormError("Market name is required."); return; }
-    if (isNaN(price) || price <= 0 || price >= 100) { setFormError("Entry price must be between 1 and 99."); return; }
-    if (isNaN(amount) || amount <= 0) { setFormError("Stake must be a positive number."); return; }
+  const openConfirmWith = (data: ParsedTrade) => {
+    setParsed(data);
+    setConfirmMarket(data.market ?? "");
+    setConfirmPlatform(data.platform ?? "");
+    setConfirmPosition(data.position ?? "YES");
+    setConfirmPrice(data.entry_price != null ? String(data.entry_price) : "");
+    setConfirmStake(data.stake != null ? String(data.stake) : "");
+    setConfirmMarketId(data.market_id ?? null);
+    setModalStep("confirm");
+  };
 
-    setSubmitting(true);
+  const handleFileChange = async (file: File) => {
+    setParseError(null);
+    setModalStep("parsing");
+
+    const preview = URL.createObjectURL(file);
+    setImagePreview(preview);
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      const dataUrl = e.target?.result as string;
+      const base64 = dataUrl.split(",")[1];
+      const mimeType = file.type || "image/jpeg";
+
+      try {
+        const res = await fetch("/api/manual-trades/parse", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ imageBase64: base64, mimeType }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          setParseError(data.error ?? "Failed to parse image");
+          setModalStep("input");
+          return;
+        }
+        openConfirmWith(data);
+      } catch {
+        setParseError("Something went wrong. Try again.");
+        setModalStep("input");
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleUrlParse = async () => {
+    if (!urlInput.trim()) return;
+    setParseError(null);
+    setModalStep("parsing");
+
+    try {
+      const res = await fetch("/api/manual-trades/parse", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: urlInput.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setParseError(data.error ?? "Failed to fetch market");
+        setModalStep("input");
+        return;
+      }
+      openConfirmWith(data);
+    } catch {
+      setParseError("Something went wrong. Try again.");
+      setModalStep("input");
+    }
+  };
+
+  const handleSave = async () => {
+    setConfirmError(null);
+    const price = parseFloat(confirmPrice);
+    const amount = parseFloat(confirmStake);
+    if (!confirmMarket.trim()) { setConfirmError("Market name is required."); return; }
+    if (isNaN(price) || price <= 0 || price >= 100) { setConfirmError("Entry price must be between 1 and 99."); return; }
+    if (isNaN(amount) || amount <= 0) { setConfirmError("Stake must be a positive number."); return; }
+
+    setModalStep("saving");
     try {
       const res = await fetch("/api/manual-trades", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          market: form.market,
-          platform: form.platform || null,
-          position: form.position,
+          market: confirmMarket,
+          platform: confirmPlatform || null,
+          position: confirmPosition,
           entry_price: price,
           stake: amount,
-          notes: form.notes || null,
+          notes: confirmNotes || null,
+          market_id: confirmMarketId || null,
         }),
       });
       const d = await res.json();
-      if (!res.ok) { setFormError(d.error ?? "Failed to add trade."); return; }
+      if (!res.ok) { setConfirmError(d.error ?? "Failed to save trade."); setModalStep("confirm"); return; }
       setTrades((prev) => [d.trade, ...prev]);
-      setPortfolio((prev) => {
-        if (!prev) return prev;
-        return { ...prev, pending: prev.pending + 1 };
-      });
-      setForm(EMPTY_FORM);
-      setFormOpen(false);
+      setPortfolio((prev) => prev ? { ...prev, pending: prev.pending + 1 } : prev);
+      closeModal();
+      load();
     } catch {
-      setFormError("Something went wrong. Try again.");
-    } finally {
-      setSubmitting(false);
+      setConfirmError("Something went wrong. Try again.");
+      setModalStep("confirm");
     }
   };
 
@@ -293,15 +438,16 @@ export default function PortfolioPage() {
   const pnlPositive = (portfolio?.pnl ?? 0) >= 0;
 
   const potentialProfit = (() => {
-    const price = parseFloat(form.entry_price);
-    const amount = parseFloat(form.stake);
+    const price = parseFloat(confirmPrice);
+    const amount = parseFloat(confirmStake);
     if (isNaN(price) || isNaN(amount) || price <= 0 || price >= 100 || amount <= 0) return null;
-    return amount * (100 - price) / price;
+    return (amount * (100 - price)) / price;
   })();
 
   return (
     <div className="min-h-screen bg-bg">
       {!loading && !error && <MobileNav activeTab="portfolio" />}
+
       <nav className="border-b border-border-subtle px-6 py-4">
         <div className="max-w-3xl mx-auto flex items-center justify-between">
           <Link href="/picks" className="flex items-center gap-2 text-text-dim hover:text-white transition-colors">
@@ -319,8 +465,6 @@ export default function PortfolioPage() {
       </nav>
 
       <div className="max-w-3xl mx-auto px-4 py-8 pb-32 sm:pb-10">
-
-        {/* Balance + P&L card */}
         {portfolio && (
           <div className="rounded-2xl border border-border-subtle bg-card px-6 py-5 mb-4">
             <div className="flex items-start justify-between">
@@ -352,33 +496,190 @@ export default function PortfolioPage() {
         )}
 
         {error && (
-          <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/30 text-red-300 text-sm mb-4">{error}</div>
+          <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/30 text-red-300 text-sm mb-4">
+            {error}
+          </div>
         )}
 
         {!loading && (
           <>
-            {/* Enter Trade form */}
-            <div className="rounded-2xl border border-border-subtle bg-card mb-4 overflow-hidden">
-              <button
-                onClick={() => setFormOpen((v) => !v)}
-                className="w-full flex items-center justify-between px-5 py-4 hover:bg-white/[0.02] transition-colors"
-              >
-                <div className="flex items-center gap-2">
-                  <Plus size={16} className="text-[#00dc82]" />
-                  <span className="text-white font-semibold">Enter Trade</span>
-                </div>
-                {formOpen ? <ChevronUp size={16} className="text-text-dim" /> : <ChevronDown size={16} className="text-text-dim" />}
-              </button>
+            {/* Log Trade button */}
+            <button
+              onClick={() => { setInputTab("screenshot"); setModalStep("input"); }}
+              className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl border border-[#00dc82]/30 bg-[#00dc82]/5 hover:bg-[#00dc82]/10 transition-all mb-4 group"
+            >
+              <Plus size={16} className="text-[#00dc82]" />
+              <span className="text-[#00dc82] font-semibold text-sm">Log Trade</span>
+            </button>
 
-              {formOpen && (
-                <div className="border-t border-white/5 px-5 pb-5 pt-4 space-y-4">
-                  {/* Market */}
+            {trades.length === 0 ? (
+              <div className="text-center py-20">
+                <div className="w-14 h-14 rounded-2xl bg-white/5 border border-border-subtle flex items-center justify-center mx-auto mb-4">
+                  <TrendingUp size={24} className="text-text-dim" />
+                </div>
+                <h2 className="text-lg font-semibold mb-2">No trades yet</h2>
+                <p className="text-text-dim text-sm mb-6">
+                  Upload a screenshot or paste a market URL to log your first trade.
+                </p>
+                <button
+                  onClick={() => { setInputTab("screenshot"); setModalStep("input"); }}
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#00dc82] text-[#070d1a] font-semibold text-sm hover:brightness-110 transition-all"
+                >
+                  <Plus size={14} /> Log Trade
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {trades.map((trade) => (
+                  <TradeCard key={trade.id} trade={trade} onUpdate={handleUpdate} onDelete={handleDelete} />
+                ))}
+              </div>
+            )}
+          </>
+        )}
+      </div>
+
+      {/* Modal overlay */}
+      {modalStep !== null && (
+        <div
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm px-4 pb-4 sm:pb-0"
+          onClick={(e) => { if (e.target === e.currentTarget) closeModal(); }}
+        >
+          <div className="w-full max-w-md bg-[#0d1526] border border-border-subtle rounded-3xl overflow-hidden shadow-2xl">
+
+            {/* Input step */}
+            {(modalStep === "input") && (
+              <div>
+                <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-white/5">
+                  <h2 className="text-white font-semibold text-base">Log Trade</h2>
+                  <button onClick={closeModal} className="text-text-dim hover:text-white transition-colors">
+                    <X size={18} />
+                  </button>
+                </div>
+
+                {/* Tabs */}
+                <div className="flex gap-0 px-6 pt-4">
+                  {(["screenshot", "url"] as InputTab[]).map((tab) => (
+                    <button
+                      key={tab}
+                      onClick={() => setInputTab(tab)}
+                      className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-sm font-medium border-b-2 transition-all ${
+                        inputTab === tab
+                          ? "border-[#00dc82] text-[#00dc82]"
+                          : "border-transparent text-text-dim hover:text-white"
+                      }`}
+                    >
+                      {tab === "screenshot" ? <Camera size={14} /> : <Link2 size={14} />}
+                      {tab === "screenshot" ? "Screenshot" : "URL"}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="px-6 py-5 space-y-4">
+                  {parseError && (
+                    <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs">
+                      {parseError}
+                    </div>
+                  )}
+
+                  {inputTab === "screenshot" ? (
+                    <>
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/*"
+                        capture="environment"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) handleFileChange(file);
+                        }}
+                      />
+                      <button
+                        onClick={() => fileInputRef.current?.click()}
+                        className="w-full flex flex-col items-center justify-center gap-3 py-10 rounded-2xl border-2 border-dashed border-border-subtle hover:border-[#00dc82]/40 hover:bg-[#00dc82]/5 transition-all"
+                      >
+                        <div className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center">
+                          <Camera size={22} className="text-text-dim" />
+                        </div>
+                        <div className="text-center">
+                          <p className="text-white text-sm font-medium">Upload bet screenshot</p>
+                          <p className="text-text-dim text-xs mt-0.5">Tap to take a photo or choose from library</p>
+                        </div>
+                      </button>
+                      <p className="text-center text-xs text-text-dim">
+                        AI will extract the market, price, and position automatically
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <div>
+                        <label className="text-xs text-text-dim uppercase tracking-wider font-medium block mb-1.5">
+                          Kalshi or Polymarket URL
+                        </label>
+                        <input
+                          type="url"
+                          value={urlInput}
+                          onChange={(e) => setUrlInput(e.target.value)}
+                          onKeyDown={(e) => { if (e.key === "Enter") handleUrlParse(); }}
+                          placeholder="https://kalshi.com/markets/..."
+                          className="w-full bg-white/5 border border-border-subtle rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-text-dim focus:outline-none focus:border-[#00dc82]/50 transition-colors"
+                          autoFocus
+                        />
+                      </div>
+                      <button
+                        onClick={handleUrlParse}
+                        disabled={!urlInput.trim()}
+                        className="w-full py-3 rounded-xl bg-[#00dc82] text-[#070d1a] font-bold text-sm hover:brightness-110 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        Fetch Market
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Parsing step */}
+            {modalStep === "parsing" && (
+              <div className="flex flex-col items-center justify-center py-16 px-6 gap-4">
+                {imagePreview && (
+                  <div className="w-24 h-24 rounded-2xl overflow-hidden border border-border-subtle mb-2">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
+                  </div>
+                )}
+                <Loader2 size={28} className="text-[#00dc82] animate-spin" />
+                <div className="text-center">
+                  <p className="text-white font-medium text-sm">Analyzing your bet…</p>
+                  <p className="text-text-dim text-xs mt-1">AI is extracting the trade details</p>
+                </div>
+              </div>
+            )}
+
+            {/* Confirm step */}
+            {(modalStep === "confirm" || modalStep === "saving") && parsed !== null && (
+              <div>
+                <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-white/5">
                   <div>
-                    <label className="text-xs text-text-dim uppercase tracking-wider font-medium block mb-1.5">Market / Event</label>
+                    <h2 className="text-white font-semibold text-base">Confirm Trade</h2>
+                    <p className="text-text-dim text-xs mt-0.5">Review and edit the detected details</p>
+                  </div>
+                  <button onClick={closeModal} className="text-text-dim hover:text-white transition-colors">
+                    <X size={18} />
+                  </button>
+                </div>
+
+                <div className="px-6 py-5 space-y-4">
+                  {/* Market name */}
+                  <div>
+                    <label className="text-xs text-text-dim uppercase tracking-wider font-medium block mb-1.5">
+                      Market / Event
+                    </label>
                     <input
                       type="text"
-                      value={form.market}
-                      onChange={(e) => setForm((f) => ({ ...f, market: e.target.value }))}
+                      value={confirmMarket}
+                      onChange={(e) => setConfirmMarket(e.target.value)}
                       placeholder="e.g. Will the Fed cut rates in September?"
                       className="w-full bg-white/5 border border-border-subtle rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-text-dim focus:outline-none focus:border-[#00dc82]/50 transition-colors"
                     />
@@ -387,31 +688,32 @@ export default function PortfolioPage() {
                   <div className="grid grid-cols-2 gap-3">
                     {/* Platform */}
                     <div>
-                      <label className="text-xs text-text-dim uppercase tracking-wider font-medium block mb-1.5">Platform</label>
-                      <div className="relative">
-                        <select
-                          value={form.platform}
-                          onChange={(e) => setForm((f) => ({ ...f, platform: e.target.value }))}
-                          className="w-full bg-white/5 border border-border-subtle rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-[#00dc82]/50 transition-colors appearance-none pr-8"
-                        >
-                          <option value="">Optional</option>
-                          {PLATFORMS.map((p) => <option key={p} value={p}>{p}</option>)}
-                        </select>
-                        <ChevronsUpDown size={13} className="absolute right-3 top-1/2 -translate-y-1/2 text-text-dim pointer-events-none" />
-                      </div>
+                      <label className="text-xs text-text-dim uppercase tracking-wider font-medium block mb-1.5">
+                        Platform
+                      </label>
+                      <select
+                        value={confirmPlatform}
+                        onChange={(e) => setConfirmPlatform(e.target.value)}
+                        className="w-full bg-white/5 border border-border-subtle rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-[#00dc82]/50 transition-colors appearance-none"
+                      >
+                        <option value="">Select</option>
+                        {PLATFORMS.map((p) => <option key={p} value={p}>{p}</option>)}
+                      </select>
                     </div>
 
                     {/* Position */}
                     <div>
-                      <label className="text-xs text-text-dim uppercase tracking-wider font-medium block mb-1.5">Position</label>
+                      <label className="text-xs text-text-dim uppercase tracking-wider font-medium block mb-1.5">
+                        Position
+                      </label>
                       <div className="flex gap-1 p-0.5 rounded-xl bg-white/5 border border-border-subtle h-[42px]">
                         {["YES", "NO"].map((pos) => (
                           <button
                             key={pos}
                             type="button"
-                            onClick={() => setForm((f) => ({ ...f, position: pos }))}
+                            onClick={() => setConfirmPosition(pos)}
                             className={`flex-1 rounded-lg text-sm font-semibold transition-all flex items-center justify-center gap-1 ${
-                              form.position === pos
+                              confirmPosition === pos
                                 ? pos === "YES"
                                   ? "bg-[#00dc82] text-[#070d1a]"
                                   : "bg-red-500 text-white"
@@ -427,16 +729,18 @@ export default function PortfolioPage() {
                   </div>
 
                   <div className="grid grid-cols-2 gap-3">
-                    {/* Entry Price */}
+                    {/* Entry price */}
                     <div>
-                      <label className="text-xs text-text-dim uppercase tracking-wider font-medium block mb-1.5">Entry Price</label>
+                      <label className="text-xs text-text-dim uppercase tracking-wider font-medium block mb-1.5">
+                        Entry Price
+                      </label>
                       <div className="relative">
                         <input
                           type="number"
                           min="1"
                           max="99"
-                          value={form.entry_price}
-                          onChange={(e) => setForm((f) => ({ ...f, entry_price: e.target.value }))}
+                          value={confirmPrice}
+                          onChange={(e) => setConfirmPrice(e.target.value)}
                           placeholder="65"
                           className="w-full bg-white/5 border border-border-subtle rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-text-dim focus:outline-none focus:border-[#00dc82]/50 transition-colors pr-8"
                         />
@@ -446,14 +750,16 @@ export default function PortfolioPage() {
 
                     {/* Stake */}
                     <div>
-                      <label className="text-xs text-text-dim uppercase tracking-wider font-medium block mb-1.5">Stake</label>
+                      <label className="text-xs text-text-dim uppercase tracking-wider font-medium block mb-1.5">
+                        Stake
+                      </label>
                       <div className="relative">
                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-text-dim">$</span>
                         <input
                           type="number"
                           min="1"
-                          value={form.stake}
-                          onChange={(e) => setForm((f) => ({ ...f, stake: e.target.value }))}
+                          value={confirmStake}
+                          onChange={(e) => setConfirmStake(e.target.value)}
                           placeholder="100"
                           className="w-full bg-white/5 border border-border-subtle rounded-xl pl-7 pr-4 py-2.5 text-sm text-white placeholder:text-text-dim focus:outline-none focus:border-[#00dc82]/50 transition-colors"
                         />
@@ -463,15 +769,27 @@ export default function PortfolioPage() {
 
                   {/* Notes */}
                   <div>
-                    <label className="text-xs text-text-dim uppercase tracking-wider font-medium block mb-1.5">Notes <span className="normal-case text-text-dim">(optional)</span></label>
+                    <label className="text-xs text-text-dim uppercase tracking-wider font-medium block mb-1.5">
+                      Notes <span className="normal-case text-text-dim">(optional)</span>
+                    </label>
                     <input
                       type="text"
-                      value={form.notes}
-                      onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
+                      value={confirmNotes}
+                      onChange={(e) => setConfirmNotes(e.target.value)}
                       placeholder="Why are you taking this position?"
                       className="w-full bg-white/5 border border-border-subtle rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-text-dim focus:outline-none focus:border-[#00dc82]/50 transition-colors"
                     />
                   </div>
+
+                  {/* Auto-resolve badge */}
+                  {confirmMarketId && (
+                    <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-blue-500/10 border border-blue-500/20">
+                      <RefreshCw size={13} className="text-blue-400 shrink-0" />
+                      <p className="text-xs text-blue-400">
+                        This trade will auto-resolve when the market settles.
+                      </p>
+                    </div>
+                  )}
 
                   {/* Profit preview */}
                   {potentialProfit !== null && (
@@ -481,44 +799,34 @@ export default function PortfolioPage() {
                     </div>
                   )}
 
-                  {formError && <p className="text-red-400 text-xs">{formError}</p>}
+                  {confirmError && <p className="text-red-400 text-xs">{confirmError}</p>}
 
-                  <button
-                    onClick={submit}
-                    disabled={submitting}
-                    className="w-full py-3 rounded-xl bg-[#00dc82] text-[#070d1a] font-bold text-sm hover:brightness-110 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {submitting ? "Adding trade…" : "Add Trade"}
-                  </button>
+                  <div className="flex gap-2 pt-1">
+                    <button
+                      onClick={() => setModalStep("input")}
+                      disabled={modalStep === "saving"}
+                      className="flex-1 py-3 rounded-xl border border-border-subtle text-text-dim text-sm font-medium hover:text-white hover:border-white/20 transition-all disabled:opacity-40"
+                    >
+                      Back
+                    </button>
+                    <button
+                      onClick={handleSave}
+                      disabled={modalStep === "saving"}
+                      className="flex-1 py-3 rounded-xl bg-[#00dc82] text-[#070d1a] font-bold text-sm hover:brightness-110 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    >
+                      {modalStep === "saving" ? (
+                        <><Loader2 size={14} className="animate-spin" /> Saving…</>
+                      ) : (
+                        "Save Trade"
+                      )}
+                    </button>
+                  </div>
                 </div>
-              )}
-            </div>
-
-            {/* Trade list */}
-            {trades.length === 0 ? (
-              <div className="text-center py-20">
-                <div className="w-14 h-14 rounded-2xl bg-white/5 border border-border-subtle flex items-center justify-center mx-auto mb-4">
-                  <TrendingUp size={24} className="text-text-dim" />
-                </div>
-                <h2 className="text-lg font-semibold mb-2">No trades yet</h2>
-                <p className="text-text-dim text-sm mb-6">Enter your first paper trade above to start tracking your strategy.</p>
-                <button
-                  onClick={() => setFormOpen(true)}
-                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#00dc82] text-[#070d1a] font-semibold text-sm hover:brightness-110 transition-all"
-                >
-                  <Plus size={14} /> Enter Trade
-                </button>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {trades.map((trade) => (
-                  <TradeCard key={trade.id} trade={trade} onUpdate={handleUpdate} onDelete={handleDelete} />
-                ))}
               </div>
             )}
-          </>
-        )}
-      </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
