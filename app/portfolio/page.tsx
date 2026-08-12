@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { UserButton } from "@clerk/nextjs";
+import MobileNav from "@/components/MobileNav";
 import {
   ArrowLeft,
   Plus,
@@ -300,6 +301,7 @@ export default function PortfolioPage() {
 
   return (
     <div className="min-h-screen bg-bg">
+      <MobileNav activeTab="portfolio" />
       <nav className="border-b border-border-subtle px-6 py-4">
         <div className="max-w-3xl mx-auto flex items-center justify-between">
           <Link href="/picks" className="flex items-center gap-2 text-text-dim hover:text-white transition-colors">
@@ -316,7 +318,7 @@ export default function PortfolioPage() {
         </div>
       </nav>
 
-      <div className="max-w-3xl mx-auto px-4 py-8 pb-28 sm:pb-10">
+      <div className="max-w-3xl mx-auto px-4 py-8 pb-32 sm:pb-10">
 
         {/* Balance + P&L card */}
         {portfolio && (

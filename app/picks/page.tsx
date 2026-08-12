@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import {
@@ -10,7 +10,8 @@ import {
   AlertCircle,
   Shield,
   ChevronDown,
-  ChevronUp,
+  ChevronLeft,
+  ChevronRight,
   Zap,
   Lock,
   Sparkles,
@@ -307,19 +308,27 @@ function PickCard({
   onUpdate,
   onRefresh,
   bankroll,
+  animationIndex = 0,
 }: {
   pick: Pick;
   isAdmin: boolean;
   onUpdate: (id: string, result: Pick["result"]) => void;
   onRefresh: (id: string, data: Partial<Pick>) => void;
   bankroll: number;
+  animationIndex?: number;
 }) {
   const [expanded, setExpanded] = useState(false);
   const gs = GRADE_CONFIG[pick.grade] ?? GRADE_CONFIG["B"];
+  const kelly = calcKelly(pick.implied_probability, pick.true_odds, pick.recommendation);
+  const actualEdge = (pick.true_odds ?? 0) - (pick.implied_probability ?? 0);
   const isBuy = pick.recommendation === "BUY";
+  const hasRealEdge = kelly.hasEdge;
 
   return (
-    <div className={`rounded-2xl border ${gs.border} ${gs.bg} ${gs.glow} overflow-hidden`}>
+    <div
+      className={`rounded-2xl border ${gs.border} ${gs.bg} ${gs.glow} overflow-hidden animate-fade-up`}
+      style={{ animationDelay: `${animationIndex * 70}ms` }}
+    >
       <button
         onClick={() => setExpanded((v) => !v)}
         className="w-full text-left p-5 hover:bg-white/[0.02] transition-colors"
@@ -329,7 +338,7 @@ function PickCard({
             <div className={`w-14 h-14 rounded-xl border ${gs.border} ${gs.bg} flex items-center justify-center mb-1`}>
               <span className={`text-2xl font-black ${gs.text}`}>{pick.grade}</span>
             </div>
-            <span className="text-xs text-text-dim">{pick.edge_score > 0 ? `+${pick.edge_score?.toFixed(0)}` : pick.edge_score?.toFixed(0)} edge</span>
+            <span className="text-xs text-text-dim">{actualEdge > 0 ? "+" : ""}{actualEdge.toFixed(1)}pp edge</span>
           </div>
 
           <div className="flex-1 min-w-0">
@@ -355,19 +364,29 @@ function PickCard({
           </div>
 
           <div className="flex flex-col items-end gap-2 shrink-0">
-            <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-bold text-sm ${
-              isBuy ? "bg-[#00dc82]/15 text-[#00dc82]" : "bg-red-500/15 text-red-400"
-            }`}>
-              {isBuy ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
-              {pick.recommendation}
-            </div>
-            {expanded ? <ChevronUp size={16} className="text-text-dim" /> : <ChevronDown size={16} className="text-text-dim" />}
+            {!hasRealEdge ? (
+              <div className="animate-skip-pulse flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-bold text-sm bg-yellow-500/15 text-yellow-400 border border-yellow-500/20">
+                <AlertCircle size={14} />
+                SKIP
+              </div>
+            ) : (
+              <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-bold text-sm ${
+                isBuy ? "bg-[#00dc82]/15 text-[#00dc82]" : "bg-red-500/15 text-red-400"
+              }`}>
+                {isBuy ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
+                {pick.recommendation}
+              </div>
+            )}
+            <ChevronDown
+              size={16}
+              className={`text-text-dim transition-transform duration-200 ${expanded ? "rotate-180" : ""}`}
+            />
           </div>
         </div>
       </button>
 
       {expanded && (
-        <div className="border-t border-white/5 p-5 space-y-4">
+        <div className="border-t border-white/5 p-5 space-y-4 animate-slide-down">
           {isAdmin && (
             <div className="flex items-center gap-3 p-3 rounded-xl bg-white/5 border border-white/10">
               <span className="text-xs text-text-dim font-medium">Admin</span>
@@ -472,16 +491,21 @@ function PickCard({
 function FreePickCard({
   pick,
   onTrade,
+  animationIndex = 0,
 }: {
   pick: Pick;
   onTrade: (pick: Pick) => void;
+  animationIndex?: number;
 }) {
   const gs = GRADE_CONFIG[pick.grade] ?? GRADE_CONFIG["B"];
   const isBuy = pick.recommendation === "BUY";
   const canTrade = pick.result === null && pick.market_id;
 
   return (
-    <div className={`rounded-2xl border ${gs.border} ${gs.bg} overflow-hidden`}>
+    <div
+      className={`rounded-2xl border ${gs.border} ${gs.bg} overflow-hidden animate-fade-up`}
+      style={{ animationDelay: `${animationIndex * 70}ms` }}
+    >
       <div className="p-5">
         <div className="flex items-start gap-4">
           <div className={`shrink-0 w-14 h-14 rounded-xl border ${gs.border} ${gs.bg} flex items-center justify-center`}>
@@ -594,6 +618,10 @@ export default function PicksPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Date navigation
+  const [availableDates, setAvailableDates] = useState<string[]>([]);
+  const filterInitializedRef = useRef(false);
+
   // Bankroll + Kelly
   const [bankroll, setBankroll] = useBankroll();
 
@@ -609,30 +637,45 @@ export default function PicksPage() {
   const [tradeSuccess, setTradeSuccess] = useState(false);
   const [tradeError, setTradeError] = useState<string | null>(null);
 
+  const loadPicksForDate = useCallback(async (date: string | null) => {
+    setLoading(true);
+    setError(null);
+    const url = date ? `/api/picks?date=${date}` : "/api/picks";
+    try {
+      const d = await fetch(url).then((r) => r.json());
+      if (d.error) setError(d.error);
+      else {
+        setPicks(d.picks ?? []);
+        setPickDate(d.pickDate);
+        setRecord(d.record ?? null);
+        setIsAdmin(d.isAdmin ?? false);
+        setIsFree(d.isFree ?? false);
+        const saved = d.savedCategoryFilter ?? null;
+        setSavedCategoryFilter(saved);
+        if (!filterInitializedRef.current && saved && saved.length > 0) {
+          setSelectedCategories(saved);
+          filterInitializedRef.current = true;
+        }
+      }
+    } catch {
+      setError("Failed to load picks");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     if (!isLoaded) return;
     if (!isSignedIn) { setLoading(false); return; }
-    setLoading(true);
     // Fire checkin for streak (fire-and-forget)
     fetch("/api/streak", { method: "POST" }).catch(() => {});
-    fetch("/api/picks")
+    // Load available dates and today's picks in parallel
+    fetch("/api/picks/dates")
       .then((r) => r.json())
-      .then((d) => {
-        if (d.error) setError(d.error);
-        else {
-          setPicks(d.picks ?? []);
-          setPickDate(d.pickDate);
-          setRecord(d.record ?? null);
-          setIsAdmin(d.isAdmin ?? false);
-          setIsFree(d.isFree ?? false);
-          const saved = d.savedCategoryFilter ?? null;
-          setSavedCategoryFilter(saved);
-          if (saved && saved.length > 0) setSelectedCategories(saved);
-        }
-      })
-      .catch(() => setError("Failed to load picks"))
-      .finally(() => setLoading(false));
-  }, [isLoaded, isSignedIn]);
+      .then((d) => setAvailableDates(d.dates ?? []))
+      .catch(() => {});
+    loadPicksForDate(null);
+  }, [isLoaded, isSignedIn, loadPicksForDate]);
 
   const placePaperTrade = async () => {
     if (!tradingPick) return;
@@ -692,6 +735,14 @@ export default function PicksPage() {
         weekday: "long", month: "long", day: "numeric",
       })
     : null;
+
+  // Date navigation
+  const dateIndex = pickDate ? availableDates.indexOf(pickDate) : -1;
+  const isOnLatest = dateIndex === 0 || availableDates.length === 0;
+  const hasPrev = dateIndex < availableDates.length - 1;
+  const hasNext = dateIndex > 0;
+  const goToPrev = () => { const d = availableDates[dateIndex + 1]; if (d) loadPicksForDate(d); };
+  const goToNext = () => { const d = availableDates[dateIndex - 1]; if (d) loadPicksForDate(d); };
 
   return (
     <div className="min-h-screen bg-bg">
@@ -804,18 +855,56 @@ export default function PicksPage() {
 
       {isSignedIn && !loading && !isFree && <MobileNav activeTab="picks" />}
       <div className="max-w-3xl mx-auto px-4 py-10 pb-24 sm:pb-10">
-        <div className="mb-8">
+        <div className="mb-6">
           <div className="flex items-center gap-2 mb-2">
             <Sparkles size={18} className="text-[#00dc82]" />
             <span className="text-xs font-semibold text-[#00dc82] uppercase tracking-wider">AI-Curated · Updated Daily</span>
           </div>
-          <h1 className="text-2xl font-bold mb-1">Today&apos;s Picks</h1>
+          <h1 className="text-2xl font-bold mb-1">{isOnLatest ? "Today's Picks" : "Past Picks"}</h1>
           <p className="text-text-dim text-sm leading-relaxed">
             Our AI scans hundreds of markets, news sources, and live data every day and surfaces only the highest-conviction plays.
             No guesswork — just picks backed by real analysis
             {formattedDate ? ` for ${formattedDate}` : ""}.
           </p>
         </div>
+
+        {/* Date navigation */}
+        {isSignedIn && !isFree && availableDates.length > 0 && (
+          <div className="flex items-center justify-between mb-6 px-1">
+            <button
+              onClick={goToPrev}
+              disabled={!hasPrev || loading}
+              className="flex items-center gap-1.5 text-xs text-text-dim hover:text-white transition-all active:scale-90 disabled:opacity-30 disabled:cursor-not-allowed p-2 rounded-lg hover:bg-white/5"
+            >
+              <ChevronLeft size={16} />
+              <span className="hidden sm:inline">Previous</span>
+            </button>
+
+            <div className="text-center">
+              <p className="text-sm font-semibold text-white transition-all">{formattedDate ?? "—"}</p>
+              {isOnLatest && (
+                <p className="text-[10px] text-[#00dc82] font-medium uppercase tracking-wider mt-0.5 animate-fade-in">Today</p>
+              )}
+              {!isOnLatest && (
+                <button
+                  onClick={() => loadPicksForDate(null)}
+                  className="text-[10px] text-[#00dc82]/60 hover:text-[#00dc82] transition-colors uppercase tracking-wider mt-0.5 animate-fade-in"
+                >
+                  Back to today →
+                </button>
+              )}
+            </div>
+
+            <button
+              onClick={goToNext}
+              disabled={!hasNext || loading}
+              className="flex items-center gap-1.5 text-xs text-text-dim hover:text-white transition-all active:scale-90 disabled:opacity-30 disabled:cursor-not-allowed p-2 rounded-lg hover:bg-white/5"
+            >
+              <span className="hidden sm:inline">Next</span>
+              <ChevronRight size={16} />
+            </button>
+          </div>
+        )}
 
         {/* Unauthenticated teaser */}
         {!loading && isLoaded && !isSignedIn && (
@@ -947,21 +1036,23 @@ export default function PicksPage() {
 
             {filteredPicks.length === 0 && selectedCategories.length > 0 ? (
               <p className="text-center text-text-dim text-sm py-8">No picks in the selected categories today.</p>
-            ) : filteredPicks.map((pick) =>
+            ) : filteredPicks.map((pick, index) =>
               isFree ? (
                 <FreePickCard
-                  key={pick.id}
+                  key={`${pickDate}-${pick.id}`}
                   pick={pick}
+                  animationIndex={index}
                   onTrade={(p) => { setTradingPick(p); setTradeStake(10); setTradeSuccess(false); setTradeError(null); }}
                 />
               ) : (
                 <PickCard
-                  key={pick.id}
+                  key={`${pickDate}-${pick.id}`}
                   pick={pick}
                   isAdmin={isAdmin}
                   onUpdate={handleResultUpdate}
                   onRefresh={handleRefresh}
                   bankroll={bankroll}
+                  animationIndex={index}
                 />
               )
             )}

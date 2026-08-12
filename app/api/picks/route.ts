@@ -1,12 +1,15 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { getSupabase } from "@/lib/supabase";
 
 const FREE_FIELDS = "id, pick_date, platform, event, position, odds, implied_probability, category, grade, recommendation, result, market_id";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const { userId } = await auth();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const url = new URL(req.url);
+  const dateParam = url.searchParams.get("date"); // YYYY-MM-DD or null
 
   const { data: sub } = await getSupabase()
     .from("subscriptions")
@@ -19,23 +22,32 @@ export async function GET() {
 
   const isPro = isActive || isAdmin;
 
-  // Fetch most recent picks — full fields for subscribers/admin, limited for free users
-  // Type-assert as Record array because the conditional select string breaks Supabase TS inference
-  const { data: rawData, error } = await getSupabase()
-    .from("daily_picks")
-    .select(isPro ? "*" : FREE_FIELDS)
-    .order("pick_date", { ascending: false })
-    .order("edge_score", { ascending: false })
-    .limit(20);
+  // Resolve target date — use the param if provided, otherwise find most recent
+  let targetDate = dateParam;
+  if (!targetDate) {
+    const { data: latest } = await getSupabase()
+      .from("daily_picks")
+      .select("pick_date")
+      .order("pick_date", { ascending: false })
+      .limit(1)
+      .single();
+    targetDate = (latest?.pick_date as string) ?? null;
+  }
+
+  const { data: rawData, error } = targetDate
+    ? await getSupabase()
+        .from("daily_picks")
+        .select(isPro ? "*" : FREE_FIELDS)
+        .eq("pick_date", targetDate)
+        .order("edge_score", { ascending: false })
+    : { data: null, error: null };
 
   if (error) {
     console.error("Picks fetch error:", error);
     return NextResponse.json({ error: "Failed to fetch picks" }, { status: 500 });
   }
 
-  const data = (rawData as unknown) as Array<Record<string, unknown>> | null;
-  const mostRecentDate = (data?.[0]?.pick_date as string) ?? null;
-  const picks = mostRecentDate ? data!.filter((p) => p.pick_date === mostRecentDate) : [];
+  const picks = (rawData as unknown) as Array<Record<string, unknown>> | null ?? [];
 
   // Win record — only for subscribers/admin (free users see it as a conversion hook)
   let record = null;
@@ -61,5 +73,5 @@ export async function GET() {
     .single();
   const savedCategoryFilter = (prefs?.category_filter as string[] | null) ?? null;
 
-  return NextResponse.json({ picks, pickDate: mostRecentDate, record, isAdmin, isFree: !isPro, savedCategoryFilter });
+  return NextResponse.json({ picks, pickDate: targetDate, record, isAdmin, isFree: !isPro, savedCategoryFilter });
 }

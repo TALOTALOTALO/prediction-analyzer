@@ -176,13 +176,12 @@ Return ONLY a valid JSON array (no markdown, no explanation). Include between 3 
     "event": "string (specific market title)",
     "position": "string (YES, NO, or specific option)",
     "odds": "string (e.g. 65¢, +200, 65%)",
-    "impliedProbability": number,
-    "category": "string (Elections, Politics, Sports, Culture, Crypto, Commodities, Climate, Economics, Mentions, Finance, Tech & Science)",
-    "grade": "string (S or A only)",
-    "gradeLabel": "string (e.g. 'Exceptional Edge', 'Strong Value')",
-    "edgeScore": number,
-    "trueOdds": number,
-    "recommendation": "string (BUY or FADE)",
+    "impliedProbability": number (0-100, the current market price as a percentage — e.g. 42 for a market priced at 42¢ or 42%, NOT 0.42),
+    "trueOdds": number (0-100, your best estimate of the actual probability this resolves in the position's favor — e.g. 62 if you estimate 62% true probability, NOT 0.62),
+    "edgeScore": number (MUST equal trueOdds minus impliedProbability exactly, in percentage points — e.g. if impliedProbability is 42 and trueOdds is 62, edgeScore MUST be 20.0. Do NOT normalize or scale this number.),
+    "grade": "string — derived ONLY from edgeScore: S if edgeScore >= 20, A if edgeScore >= 10. Do not include picks below 10pp edge.",
+    "gradeLabel": "string (e.g. 'Exceptional Edge' for S, 'Strong Value' for A)",
+    "recommendation": "string (BUY if position has positive edge, FADE if you recommend betting the opposite side)",
     "recommendationReason": "string (1 sentence)",
     "summary": "string (2-3 sentences)",
     "bullCase": "string",
@@ -190,11 +189,12 @@ Return ONLY a valid JSON array (no markdown, no explanation). Include between 3 
     "keyRisks": ["string", "string", "string"],
     "marketInefficiency": "string",
     "confidenceLevel": "string (High or Very High)",
+    "category": "string (Elections, Politics, Sports, Culture, Crypto, Commodities, Climate, Economics, Mentions, Finance, Tech & Science)",
     "marketId": "string or null — COPY THE EXACT ID STRING from the market data line that says 'ID: ...' — do NOT shorten, truncate, or reformat it. For Kalshi this is the ticker e.g. KXBTC-25DEC31-B50000. For Polymarket this is the full event slug including any random suffix e.g. us-announces-end-of-iranian-blockade-byptptpt-20260713152715080. Reproduce it character-for-character. null only if no ID was provided in the market data."
   }
 ]
 
-Order by edge score descending. Be rigorous — if fewer than 3 strong picks exist, return what you have. Always include marketId when the market data line contains an ID field — copy it exactly.`,
+Order by edgeScore descending. Be rigorous — if fewer than 3 picks meet the 10pp minimum edge threshold, return what you have. Always include marketId when the market data line contains an ID field — copy it exactly.`,
     }],
   });
 

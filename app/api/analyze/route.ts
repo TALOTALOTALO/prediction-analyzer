@@ -282,8 +282,8 @@ Return ONLY a JSON object with this exact structure (no markdown, no explanation
 {
   "grade": "string (S, A, B, C, D, or F)",
   "gradeLabel": "string (e.g. 'Exceptional Edge', 'Strong Value', 'Slight Value', 'Fair Value', 'Slight Fade', 'Hard Pass')",
-  "edgeScore": number (0-100, your estimated true probability vs implied probability delta, scaled to 0-100),
-  "trueOdds": number (0-100, your best estimate of the actual probability this resolves YES),
+  "trueOdds": number (0-100, your best estimate of the actual probability this resolves YES — same scale as impliedProbability above),
+  "edgeScore": number (MUST equal trueOdds minus impliedProbability exactly, in percentage points — e.g. if impliedProbability is 42 and trueOdds is 57, edgeScore MUST be 15.0. Do NOT normalize or scale this number.),
   "recommendation": "string (BUY, HOLD, or FADE)",
   "recommendationReason": "string (1 sentence — the key reason for your recommendation)",
   "summary": "string (2-3 sentences — overall assessment of this bet)",

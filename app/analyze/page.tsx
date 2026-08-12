@@ -351,6 +351,9 @@ function AnalyzePageInner() {
                 <Link href="/coach" className="flex items-center gap-1 text-xs text-text-dim hover:text-white transition-colors">
                   AI Coach
                 </Link>
+                <Link href="/portfolio" className="text-xs text-text-dim hover:text-white transition-colors">
+                  Portfolio
+                </Link>
                 <Link href="/history" className="text-xs text-text-dim hover:text-white transition-colors">
                   History
                 </Link>
