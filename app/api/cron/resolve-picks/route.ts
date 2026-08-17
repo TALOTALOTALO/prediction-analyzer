@@ -48,7 +48,7 @@ async function checkPolymarketResult(marketId: string): Promise<"yes" | "no" | n
       if (evRes.ok) {
         const events: Record<string, unknown>[] = await evRes.json();
         const ev = events?.[0];
-        if (ev && ev.active === false) {
+        if (ev) {
           const markets = ev.markets as Array<Record<string, unknown>> | undefined;
           const firstMarket = markets?.[0];
           if (firstMarket) {
@@ -56,8 +56,19 @@ async function checkPolymarketResult(marketId: string): Promise<"yes" | "no" | n
             try { prices = JSON.parse((firstMarket.outcomePrices as string) ?? '["0.5","0.5"]'); }
             catch { prices = ["0.5", "0.5"]; }
             const yesPrice = parseFloat(prices[0] ?? "0.5");
-            if (yesPrice >= 0.95) return "yes";
-            if (yesPrice <= 0.05) return "no";
+
+            // Polymarket NEVER sets active=false — they use closed=true as the settlement signal.
+            // Guard price-based resolution behind endDate to prevent premature resolution of
+            // long-dated markets that are just priced low (e.g. 3¢ YES ≠ resolved "no").
+            const isClosed = ev.closed === true;
+            const endDate = (firstMarket.endDate as string) || (ev.endDate as string);
+            const endDatePassed = endDate ? new Date(endDate) < new Date() : false;
+            const isSettled = isClosed || (endDatePassed && (yesPrice >= 0.97 || yesPrice <= 0.03));
+
+            if (isSettled) {
+              if (yesPrice >= 0.95) return "yes";
+              if (yesPrice <= 0.05) return "no";
+            }
             return null;
           }
         }
@@ -70,12 +81,17 @@ async function checkPolymarketResult(marketId: string): Promise<"yes" | "no" | n
     if (!res.ok) return null;
     const data: Record<string, unknown>[] = await res.json();
     const market = data?.[0];
-    if (!market || market.active !== false) return null;
+    if (!market) return null;
 
     let prices: string[];
     try { prices = JSON.parse((market.outcomePrices as string) ?? '["0.5","0.5"]'); }
     catch { return null; }
     const yesPrice = parseFloat(prices[0] ?? "0.5");
+    const isClosed = market.closed === true;
+    const endDate = market.endDate as string | null;
+    const endDatePassed = endDate ? new Date(endDate) < new Date() : false;
+    const isSettled = isClosed || (endDatePassed && (yesPrice >= 0.97 || yesPrice <= 0.03));
+    if (!isSettled) return null;
     if (yesPrice >= 0.95) return "yes";
     if (yesPrice <= 0.05) return "no";
     return null;
