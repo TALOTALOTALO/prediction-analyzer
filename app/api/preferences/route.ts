@@ -10,7 +10,7 @@ export async function GET() {
     .from("user_preferences")
     .select("category_filter")
     .eq("user_id", userId)
-    .single();
+    .maybeSingle();
 
   return NextResponse.json({ categoryFilter: (data?.category_filter as string[] | null) ?? null });
 }

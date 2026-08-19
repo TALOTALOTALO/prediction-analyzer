@@ -61,9 +61,10 @@ async function checkPolymarketResult(marketId: string): Promise<"yes" | "no" | n
             // Guard price-based resolution behind endDate to prevent premature resolution of
             // long-dated markets that are just priced low (e.g. 3¢ YES ≠ resolved "no").
             const isClosed = ev.closed === true;
-            const endDate = (firstMarket.endDate as string) || (ev.endDate as string);
+            // Use event-level endDate (resolution deadline) not market-level endDate (trading close)
+            const endDate = (ev.endDate as string) || (firstMarket.endDate as string);
             const endDatePassed = endDate ? new Date(endDate) < new Date() : false;
-            const isSettled = isClosed || (endDatePassed && (yesPrice >= 0.97 || yesPrice <= 0.03));
+            const isSettled = isClosed || (endDatePassed && (yesPrice >= 0.95 || yesPrice <= 0.05));
 
             if (isSettled) {
               if (yesPrice >= 0.95) return "yes";
@@ -90,7 +91,7 @@ async function checkPolymarketResult(marketId: string): Promise<"yes" | "no" | n
     const isClosed = market.closed === true;
     const endDate = market.endDate as string | null;
     const endDatePassed = endDate ? new Date(endDate) < new Date() : false;
-    const isSettled = isClosed || (endDatePassed && (yesPrice >= 0.97 || yesPrice <= 0.03));
+    const isSettled = isClosed || (endDatePassed && (yesPrice >= 0.95 || yesPrice <= 0.05));
     if (!isSettled) return null;
     if (yesPrice >= 0.95) return "yes";
     if (yesPrice <= 0.05) return "no";

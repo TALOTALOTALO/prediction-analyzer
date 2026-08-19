@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
     .from("subscriptions")
     .select("status")
     .eq("user_id", userId)
-    .single();
+    .maybeSingle();
 
   const isActive = sub?.status === "active" || sub?.status === "trialing";
   const isAdmin = userId === process.env.ADMIN_USER_ID;

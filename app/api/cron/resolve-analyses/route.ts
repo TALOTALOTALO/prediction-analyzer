@@ -55,9 +55,10 @@ async function checkPolymarketResult(marketId: string): Promise<"yes" | "no" | n
             catch { prices = ["0.5", "0.5"]; }
             const yesPrice = parseFloat(prices[0] ?? "0.5");
             const isClosed = ev.closed === true;
-            const endDate = (firstMarket.endDate as string) || (ev.endDate as string);
+            // Use event-level endDate (resolution deadline) not market-level endDate (trading close)
+            const endDate = (ev.endDate as string) || (firstMarket.endDate as string);
             const endDatePassed = endDate ? new Date(endDate) < new Date() : false;
-            const isSettled = isClosed || (endDatePassed && (yesPrice >= 0.97 || yesPrice <= 0.03));
+            const isSettled = isClosed || (endDatePassed && (yesPrice >= 0.95 || yesPrice <= 0.05));
             if (isSettled) {
               if (yesPrice >= 0.95) return "yes";
               if (yesPrice <= 0.05) return "no";
@@ -82,7 +83,7 @@ async function checkPolymarketResult(marketId: string): Promise<"yes" | "no" | n
     const isClosed = market.closed === true;
     const endDate = market.endDate as string | null;
     const endDatePassed = endDate ? new Date(endDate) < new Date() : false;
-    const isSettled = isClosed || (endDatePassed && (yesPrice >= 0.97 || yesPrice <= 0.03));
+    const isSettled = isClosed || (endDatePassed && (yesPrice >= 0.95 || yesPrice <= 0.05));
     if (!isSettled) return null;
     if (yesPrice >= 0.95) return "yes";
     if (yesPrice <= 0.05) return "no";

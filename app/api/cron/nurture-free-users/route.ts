@@ -97,7 +97,7 @@ export async function GET(req: NextRequest) {
         .eq("user_id", claim.user_id)
         .order("created_at", { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
 
       const html = await render(
         FreeUserNurtureEmail({
