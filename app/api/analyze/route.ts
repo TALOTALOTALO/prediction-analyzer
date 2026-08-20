@@ -22,41 +22,100 @@ async function checkRateLimit(userId: string): Promise<boolean> {
   return (count ?? 0) < RATE_LIMIT;
 }
 
-async function tavilySearch(query: string): Promise<string> {
-  if (!process.env.TAVILY_API_KEY || !query) return "";
+interface TavilyResult {
+  title: string;
+  url: string;
+  content: string;
+  published_date?: string;
+  score?: number;
+}
+
+async function tavilySearch(query: string, days?: number): Promise<TavilyResult[]> {
+  if (!process.env.TAVILY_API_KEY || !query) return [];
   try {
+    const body: Record<string, unknown> = {
+      api_key: process.env.TAVILY_API_KEY,
+      query,
+      search_depth: "advanced",
+      max_results: 8,
+      include_answer: false,
+    };
+    if (days) body.days = days;
     const res = await fetch("https://api.tavily.com/search", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        api_key: process.env.TAVILY_API_KEY,
-        query,
-        search_depth: "advanced",
-        max_results: 8,
-        include_answer: true,
-      }),
+      body: JSON.stringify(body),
     });
-    if (!res.ok) return "";
+    if (!res.ok) return [];
     const data = await res.json();
-    const snippets = (data.results ?? [])
-      .map((r: { title: string; content: string }) => `- ${r.title}: ${r.content.slice(0, 400)}`)
-      .join("\n");
-    const answer = data.answer ? `Summary: ${data.answer}\n\n` : "";
-    return `${answer}${snippets}`;
+    return (data.results ?? []) as TavilyResult[];
   } catch {
-    return "";
+    return [];
   }
+}
+
+function categoryQueries(event: string, category: string | undefined, today: string): [string, string, string] {
+  const year = today.slice(0, 4);
+  const cat = (category ?? "").toLowerCase();
+  const outcome = `${event} result outcome winner ${year}`;
+  const recent = `${event} latest news update ${today}`;
+  if (cat === "elections" || cat === "politics") {
+    return [outcome, recent, `${event} poll polling forecast`];
+  }
+  if (cat === "sports") {
+    return [outcome, recent, `${event} injury lineup stats`];
+  }
+  if (cat === "crypto" || cat === "finance" || cat === "economics") {
+    return [outcome, recent, `${event} regulatory price market analysis`];
+  }
+  if (cat === "tech & science") {
+    return [outcome, recent, `${event} announcement release update`];
+  }
+  return [outcome, recent, `${event} prediction market Kalshi Polymarket odds`];
+}
+
+function formatResults(results: TavilyResult[]): string {
+  return results
+    .map((r) => {
+      const date = r.published_date ? r.published_date.slice(0, 10) : "date unknown";
+      let domain = "";
+      try { domain = new URL(r.url).hostname.replace(/^www\./, ""); } catch { domain = r.url; }
+      return `[${date}] ${r.title} (${domain})\n${r.content.slice(0, 500)}`;
+    })
+    .join("\n\n---\n\n");
 }
 
 async function fetchNewsContext(event: string, category?: string): Promise<string> {
   if (!event) return "";
   const today = new Date().toISOString().split("T")[0];
-  const [specific, breaking] = await Promise.all([
-    tavilySearch(`${event} prediction market odds news`),
-    tavilySearch(`${category ?? "news"} breaking news today ${today}`),
+  const [q1, q2, q3] = categoryQueries(event, category, today);
+
+  const [r1, r2, r3] = await Promise.all([
+    tavilySearch(q1, 14),
+    tavilySearch(q2, 30),
+    tavilySearch(q3, 60),
   ]);
-  const parts = [specific && `=== MARKET-SPECIFIC CONTEXT ===\n${specific}`, breaking && `=== BREAKING NEWS ===\n${breaking}`].filter(Boolean);
-  return parts.join("\n\n");
+
+  // Deduplicate by URL; where duplicates exist the first (highest-score) copy wins
+  const seen = new Set<string>();
+  const merged: TavilyResult[] = [];
+  for (const r of [...r1, ...r2, ...r3]) {
+    if (!seen.has(r.url)) {
+      seen.add(r.url);
+      merged.push(r);
+    }
+  }
+  merged.sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
+  const top = merged.slice(0, 12);
+
+  if (top.length === 0) return "";
+
+  return [
+    `=== LIVE RESEARCH (fetched ${today}) ===`,
+    `Each result is prefixed with its publication date [YYYY-MM-DD]. An article published BEFORE the event date is forward-looking — it describes predictions, not confirmed outcomes. Use these dates as your primary temporal anchor.`,
+    ``,
+    formatResults(top),
+  ].join("\n");
 }
 
 export async function POST(req: NextRequest) {
@@ -264,19 +323,24 @@ Now extract all bet details and return ONLY a JSON object with this exact struct
     // Fetch live news context for the event — two parallel Tavily searches
     const newsContext = await fetchNewsContext(detected.event as string, detected.category as string | undefined);
 
+    const todayDate = new Date().toISOString().split("T")[0];
+
     // Call 2: Analysis — grade the bet using detected details + live news context
     const analysisPrompt = `You are an expert prediction market analyst with access to real-time information. Analyze this bet and return a detailed assessment.
+
+TODAY'S DATE: ${todayDate}
 
 Bet details extracted from screenshot:
 ${JSON.stringify(detected, null, 2)}
 
-${newsContext ? `LIVE CONTEXT (use this to inform your probability estimate — this is current information as of today):\n${newsContext}\n` : ""}
+${newsContext ? `LIVE CONTEXT (use this to inform your probability estimate — this is current information as of today, ${todayDate}):\n${newsContext}\n` : ""}
 
 CRITICAL RULES FOR ANALYSIS QUALITY:
 - Every claim in bullCase, bearCase, keyRisks, summary, entryStrategy, and exitStrategy MUST be grounded in verifiable facts from the live context above or well-established, timeless logic. Do NOT invent scenarios.
 - Your training data has a knowledge cutoff and may be months out of date. If you cite a specific company, product, person, or event as a risk or catalyst, you must be confident it is still current and relevant as of today — if in doubt, describe the structural/logical risk instead (e.g. "a surprise competitive release" rather than naming a specific product that may no longer exist or be relevant).
 - Do NOT reference products, services, or events that may have shut down, been discontinued, or changed since your training cutoff unless the live context above explicitly confirms they are still active.
 - Prefer grounding analysis in the live news context provided; treat your training data as background knowledge only.
+- CRITICAL — TEMPORAL GROUNDING: Today is ${todayDate}. Each live research result is prefixed with its publication date [YYYY-MM-DD]. Before drawing any conclusion about whether a market has resolved: (1) check the article's publication date, (2) determine whether the article is describing a past outcome or a future prediction. An article published before the scheduled event date is inherently forward-looking — phrases like "X is expected to win" or "X leads polls" are predictions, not outcomes. Only conclude a market is resolved if an article's publication date is on or before ${todayDate} AND the article unambiguously states the outcome has occurred. When in doubt, treat the market as OPEN and assess the forward probability.
 
 Return ONLY a JSON object with this exact structure (no markdown, no explanation):
 {
