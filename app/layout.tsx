@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { ClerkProvider } from "@clerk/nextjs";
+import Script from "next/script";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -12,13 +13,11 @@ export const metadata: Metadata = {
     description: "Grade any bet. Know your edge before you commit.",
     type: "website",
     url: "https://www.fademe.ai",
-    images: [{ url: "/logo-full.png", width: 1080, height: 1080, alt: "FadeMe" }],
   },
   twitter: {
     card: "summary_large_image",
     title: "FadeMe — Analyze. Predict. Fade.",
     description: "Grade any bet. Know your edge before you commit.",
-    images: ["/logo-full.png"],
   },
 };
 
@@ -43,6 +42,7 @@ export default function RootLayout({
     <ClerkProvider>
       <html lang="en">
         <body className="min-h-screen bg-bg text-white antialiased">
+          <Script src="https://aromatic-caribou-889.convex.site/api/a/am_BkYedGqKm6bAqLIx" strategy="afterInteractive" />
           <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(orgJsonLd) }} />
           {children}
         </body>
