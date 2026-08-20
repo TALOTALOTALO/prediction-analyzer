@@ -45,18 +45,16 @@ async function fetchLiveContext(query: string): Promise<string> {
         query: `${safeQuery} prediction market`,
         search_depth: "advanced",
         max_results: 5,
-        include_answer: true,
+        include_answer: false,
       }),
     });
     if (!res.ok) return "";
     const data = await res.json();
-    const snippets = (data.results ?? [])
+    return (data.results ?? [])
       .map((r: { title: string; content: string }) =>
         `${sanitizeForSystemPrompt(r.title)}: ${sanitizeForSystemPrompt(r.content)}`
       )
       .join("\n");
-    const answer = data.answer ? sanitizeForSystemPrompt(data.answer) : "";
-    return answer ? `${answer}\n\n${snippets}` : snippets;
   } catch {
     return "";
   }
@@ -70,11 +68,16 @@ export async function POST(req: NextRequest) {
     return new Response("Too many requests — slow down a bit.", { status: 429 });
   }
 
-  const { data: sub } = await getSupabase()
+  const { data: sub, error: subErr } = await getSupabase()
     .from("subscriptions")
     .select("status")
     .eq("user_id", userId)
-    .single();
+    .maybeSingle();
+
+  if (subErr) {
+    console.error("Coach subscription check error:", subErr);
+    return new Response("Service temporarily unavailable", { status: 503 });
+  }
 
   const isActive = sub?.status === "active" || sub?.status === "trialing";
   if (!isActive) return new Response("Subscription required", { status: 403 });

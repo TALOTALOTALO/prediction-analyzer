@@ -22,12 +22,17 @@ export async function PATCH(req: NextRequest) {
   const body = await req.json();
   const categoryFilter: string[] | null = body.categoryFilter ?? null;
 
-  await getSupabase()
+  const { error } = await getSupabase()
     .from("user_preferences")
     .upsert(
       { user_id: userId, category_filter: categoryFilter, updated_at: new Date().toISOString() },
       { onConflict: "user_id" }
     );
+
+  if (error) {
+    console.error("Preferences upsert error:", error);
+    return NextResponse.json({ error: "Failed to save preferences" }, { status: 500 });
+  }
 
   return NextResponse.json({ ok: true });
 }

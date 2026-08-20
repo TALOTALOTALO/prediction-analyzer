@@ -7,30 +7,47 @@ export const maxDuration = 300;
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-async function tavilySearch(query: string): Promise<string> {
-  if (!process.env.TAVILY_API_KEY || !query) return "";
+interface TavilyResult {
+  title: string;
+  url: string;
+  content: string;
+  published_date?: string;
+  score?: number;
+}
+
+async function tavilySearch(query: string, days?: number): Promise<TavilyResult[]> {
+  if (!process.env.TAVILY_API_KEY || !query) return [];
   try {
+    const body: Record<string, unknown> = {
+      api_key: process.env.TAVILY_API_KEY,
+      query,
+      search_depth: "advanced",
+      max_results: 8,
+      include_answer: false,
+    };
+    if (days) body.days = days;
     const res = await fetch("https://api.tavily.com/search", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        api_key: process.env.TAVILY_API_KEY,
-        query,
-        search_depth: "advanced",
-        max_results: 8,
-        include_answer: true,
-      }),
+      body: JSON.stringify(body),
     });
-    if (!res.ok) return "";
+    if (!res.ok) return [];
     const data = await res.json();
-    const snippets = (data.results ?? [])
-      .map((r: { title: string; content: string }) => `- ${r.title}: ${r.content.slice(0, 400)}`)
-      .join("\n");
-    const answer = data.answer ? `Summary: ${data.answer}\n\n` : "";
-    return `${answer}${snippets}`;
+    return (data.results ?? []) as TavilyResult[];
   } catch {
-    return "";
+    return [];
   }
+}
+
+function formatResults(results: TavilyResult[]): string {
+  return results
+    .map((r) => {
+      const date = r.published_date ? r.published_date.slice(0, 10) : "date unknown";
+      let domain = "";
+      try { domain = new URL(r.url).hostname.replace(/^www\./, ""); } catch { domain = r.url; }
+      return `[${date}] ${r.title} (${domain})\n${r.content.slice(0, 500)}`;
+    })
+    .join("\n\n---\n\n");
 }
 
 export async function POST(
@@ -62,15 +79,27 @@ export async function POST(
     weekday: "long", month: "long", day: "numeric", year: "numeric",
   });
 
-  const [specific, breaking] = await Promise.all([
-    tavilySearch(`${pick.event} prediction market news today`),
-    tavilySearch(`${pick.category ?? "news"} breaking news today`),
+  const todayIso = new Date().toISOString().split("T")[0];
+  const [r1, r2, r3] = await Promise.all([
+    tavilySearch(`${pick.event} result outcome`, 14),
+    tavilySearch(`${pick.event} latest news update`, 30),
+    tavilySearch(`${pick.event} prediction market odds`, 60),
   ]);
-
-  const newsContext = [
-    specific && `=== MARKET-SPECIFIC CONTEXT ===\n${specific}`,
-    breaking && `=== BREAKING NEWS ===\n${breaking}`,
-  ].filter(Boolean).join("\n\n");
+  const seen = new Set<string>();
+  const merged: TavilyResult[] = [];
+  for (const r of [...r1, ...r2, ...r3]) {
+    if (!seen.has(r.url)) { seen.add(r.url); merged.push(r); }
+  }
+  merged.sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
+  const top = merged.slice(0, 12);
+  const newsContext = top.length > 0
+    ? [
+        `=== LIVE RESEARCH (fetched ${todayIso}) ===`,
+        `Each result is prefixed with its publication date [YYYY-MM-DD]. An article published BEFORE the event date is forward-looking.`,
+        ``,
+        formatResults(top),
+      ].join("\n")
+    : "";
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const response = await (client.messages.create as any)({

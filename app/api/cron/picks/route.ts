@@ -82,16 +82,14 @@ async function tavilySearch(query: string): Promise<string> {
         query,
         search_depth: "advanced",
         max_results: 8,
-        include_answer: true,
+        include_answer: false,
       }),
     });
     if (!res.ok) return "";
     const data = await res.json();
-    const snippets = (data.results ?? [])
+    return (data.results ?? [])
       .map((r: { title: string; content: string }) => `[${r.title}]: ${r.content.slice(0, 400)}`)
       .join("\n\n");
-    const answer = data.answer ? `Summary: ${data.answer}\n\n` : "";
-    return `${answer}${snippets}`;
   } catch {
     return "";
   }
@@ -146,13 +144,12 @@ ${marketNews}`;
     weekday: "long", month: "long", day: "numeric", year: "numeric",
   });
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const response = await (client.messages.create as any)({
-    model: "claude-opus-4-7",
-    max_tokens: 8000,
-    thinking: { type: "adaptive" },
-    output_config: { effort: "high" },
-    messages: [{
+  let response;
+  try {
+    response = await client.messages.create({
+      model: "claude-opus-4-7",
+      max_tokens: 4000,
+      messages: [{
       role: "user",
       content: `You are an expert prediction market analyst. Today is ${todayLabel}.
 
@@ -196,7 +193,11 @@ Return ONLY a valid JSON array (no markdown, no explanation). Include between 3 
 
 Order by edgeScore descending. Be rigorous — if fewer than 3 picks meet the 10pp minimum edge threshold, return what you have. Always include marketId when the market data line contains an ID field — copy it exactly.`,
     }],
-  });
+    });
+  } catch (err) {
+    console.error("Claude API error in picks cron:", err);
+    return NextResponse.json({ error: "Claude API failed", detail: String(err) }, { status: 502 });
+  }
 
   const text = (response.content as Array<{ type: string; text?: string }>)
     .filter((b) => b.type === "text")

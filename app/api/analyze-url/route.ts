@@ -18,41 +18,83 @@ async function checkRateLimit(userId: string): Promise<boolean> {
   return (count ?? 0) < RATE_LIMIT;
 }
 
-async function tavilySearch(query: string): Promise<string> {
-  if (!process.env.TAVILY_API_KEY || !query) return "";
+interface TavilyResult {
+  title: string;
+  url: string;
+  content: string;
+  published_date?: string;
+  score?: number;
+}
+
+async function tavilySearch(query: string, days?: number): Promise<TavilyResult[]> {
+  if (!process.env.TAVILY_API_KEY || !query) return [];
   try {
+    const body: Record<string, unknown> = {
+      api_key: process.env.TAVILY_API_KEY,
+      query,
+      search_depth: "advanced",
+      max_results: 8,
+      include_answer: false,
+    };
+    if (days) body.days = days;
     const res = await fetch("https://api.tavily.com/search", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        api_key: process.env.TAVILY_API_KEY,
-        query,
-        search_depth: "advanced",
-        max_results: 8,
-        include_answer: true,
-      }),
+      body: JSON.stringify(body),
     });
-    if (!res.ok) return "";
+    if (!res.ok) return [];
     const data = await res.json();
-    const snippets = (data.results ?? [])
-      .map((r: { title: string; content: string }) => `- ${r.title}: ${r.content.slice(0, 400)}`)
-      .join("\n");
-    const answer = data.answer ? `Summary: ${data.answer}\n\n` : "";
-    return `${answer}${snippets}`;
+    return (data.results ?? []) as TavilyResult[];
   } catch {
-    return "";
+    return [];
   }
+}
+
+function formatResults(results: TavilyResult[]): string {
+  return results
+    .map((r) => {
+      const date = r.published_date ? r.published_date.slice(0, 10) : "date unknown";
+      let domain = "";
+      try { domain = new URL(r.url).hostname.replace(/^www\./, ""); } catch { domain = r.url; }
+      return `[${date}] ${r.title} (${domain})\n${r.content.slice(0, 500)}`;
+    })
+    .join("\n\n---\n\n");
+}
+
+function categoryQueries(event: string, category: string | undefined, today: string): [string, string, string] {
+  const year = today.slice(0, 4);
+  const cat = (category ?? "").toLowerCase();
+  const outcome = `${event} result outcome winner ${year}`;
+  const recent = `${event} latest news update ${today}`;
+  if (cat === "elections" || cat === "politics") return [outcome, recent, `${event} poll polling forecast`];
+  if (cat === "sports") return [outcome, recent, `${event} injury lineup stats`];
+  if (cat === "crypto" || cat === "finance" || cat === "economics") return [outcome, recent, `${event} regulatory price market analysis`];
+  return [outcome, recent, `${event} prediction market Kalshi Polymarket odds`];
 }
 
 async function fetchNewsContext(event: string, category?: string): Promise<string> {
   if (!event) return "";
   const today = new Date().toISOString().split("T")[0];
-  const [specific, breaking] = await Promise.all([
-    tavilySearch(`${event} prediction market odds news`),
-    tavilySearch(`${category ?? "news"} breaking news today ${today}`),
+  const [q1, q2, q3] = categoryQueries(event, category, today);
+  const [r1, r2, r3] = await Promise.all([
+    tavilySearch(q1, 14),
+    tavilySearch(q2, 30),
+    tavilySearch(q3, 60),
   ]);
-  const parts = [specific && `=== MARKET-SPECIFIC CONTEXT ===\n${specific}`, breaking && `=== BREAKING NEWS ===\n${breaking}`].filter(Boolean);
-  return parts.join("\n\n");
+  const seen = new Set<string>();
+  const merged: TavilyResult[] = [];
+  for (const r of [...r1, ...r2, ...r3]) {
+    if (!seen.has(r.url)) { seen.add(r.url); merged.push(r); }
+  }
+  merged.sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
+  const top = merged.slice(0, 12);
+  if (top.length === 0) return "";
+  return [
+    `=== LIVE RESEARCH (fetched ${today}) ===`,
+    `Each result is prefixed with its publication date [YYYY-MM-DD]. An article published BEFORE the event date is forward-looking — it describes predictions, not confirmed outcomes. Use these dates as your primary temporal anchor.`,
+    ``,
+    formatResults(top),
+  ].join("\n");
 }
 
 function kalshiSign(privateKeyPem: string, timestampMs: number, method: string, path: string): string {
