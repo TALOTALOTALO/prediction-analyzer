@@ -30,6 +30,17 @@ const post = defineType({
       },
     }),
     defineField({ name: "readTime", title: "Read Time (minutes)", type: "number" }),
+    defineField({
+      name: "section",
+      title: "Section",
+      type: "string",
+      options: {
+        list: [
+          { title: "Market Report", value: "market-report" },
+          { title: "Playbook", value: "playbook" },
+        ],
+      },
+    }),
     defineField({ name: "mainImage", title: "Main Image", type: "image", options: { hotspot: true } }),
     defineField({
       name: "body",
