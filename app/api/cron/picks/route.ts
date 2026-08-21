@@ -87,8 +87,8 @@ Return ONLY a JSON array of the 8 best market indices (0-based integers), ordere
     });
     const text = res.content.filter((b) => b.type === "text").map((b) => (b.type === "text" ? b.text : "")).join("");
     const indices = JSON.parse(text.replace(/```json\n?|\n?```/g, "").trim()) as number[];
-    // Clamp to valid range
-    return indices.filter((i) => typeof i === "number" && i >= 0 && i < markets.length).slice(0, 8);
+    // Deduplicate and clamp to valid range
+    return [...new Set(indices.filter((i) => typeof i === "number" && i >= 0 && i < markets.length))].slice(0, 8);
   } catch {
     // Fallback: pick 8 markets closest to 50% (most uncertain)
     return markets
@@ -168,8 +168,8 @@ Return a single JSON object for this market if there is genuine edge, or the str
   "odds": "string (e.g. 65¢, 65%)",
   "impliedProbability": number (0-100, current market YES price),
   "trueOdds": number (0-100, your estimated true probability),
-  "edgeScore": number (MUST equal trueOdds minus impliedProbability),
-  "grade": "string (S if edgeScore >= 20, A if edgeScore >= 10 — no other grades)",
+  "edgeScore": number (MUST equal trueOdds minus impliedProbability — positive means listed position has value, negative means the opposite side has value),
+  "grade": "string (grade the MAGNITUDE of mispricing — S if |edgeScore| >= 20, A if |edgeScore| >= 10. No other grades.)",
   "gradeLabel": "string (Exceptional Edge for S, Strong Value for A)",
   "recommendation": "string (BUY if edgeScore > 0, FADE if edgeScore < 0)",
   "recommendationReason": "string (1 sentence)",
@@ -238,7 +238,8 @@ Return ONLY the JSON array of indices to keep. No explanation.`;
     const keepIndices = JSON.parse(text.replace(/```json\n?|\n?```/g, "").trim()) as number[];
     return picks.filter((_, i) => keepIndices.includes(i));
   } catch {
-    return picks; // if devil's advocate fails, keep all picks
+    console.warn("Devil's advocate parse failed — keeping all picks");
+    return picks;
   }
 }
 

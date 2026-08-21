@@ -40,7 +40,8 @@ async function fetchKalshiPrice(ticker: string): Promise<number | null> {
       headers["KALSHI-ACCESS-TIMESTAMP"] = String(ts);
       headers["KALSHI-ACCESS-SIGNATURE"] = kalshiSign(pem, ts, "GET", path);
     }
-    const res = await fetch(`https://api.elections.kalshi.com${path}`, { headers });
+    // Use api.kalshi.com (all categories), not api.elections.kalshi.com (elections only)
+    const res = await fetch(`https://api.kalshi.com${path}`, { headers });
     if (!res.ok) return null;
     const data = await res.json();
     const m = data.market;
@@ -49,14 +50,26 @@ async function fetchKalshiPrice(ticker: string): Promise<number | null> {
 }
 
 async function fetchPolymarketPrice(eventSlug: string): Promise<number | null> {
+  // market_id is stored as the parent event slug — must query /events, not /markets
   try {
-    const res = await fetch(`https://gamma-api.polymarket.com/markets?slug=${encodeURIComponent(eventSlug)}`);
+    const res = await fetch(`https://gamma-api.polymarket.com/events?slug=${encodeURIComponent(eventSlug)}`);
     if (!res.ok) return null;
     const data = await res.json();
-    const m = data?.[0];
-    if (!m) return null;
-    const prices = JSON.parse((m.outcomePrices as string) ?? '["0.5","0.5"]');
-    return Math.round(parseFloat(prices[0] ?? "0.5") * 100);
+    const ev = data?.[0];
+    if (!ev) return null;
+    // For single-market events use the first market's YES price;
+    // for bracket events return the highest-priced market (the current favourite)
+    const markets = (ev.markets as Array<Record<string, unknown>>) ?? [];
+    if (!markets.length) return null;
+    let bestPrice = 0;
+    for (const m of markets) {
+      try {
+        const prices = JSON.parse((m.outcomePrices as string) ?? '["0","0"]');
+        const p = Math.round(parseFloat(prices[0] ?? "0") * 100);
+        if (p > bestPrice) bestPrice = p;
+      } catch { /* skip */ }
+    }
+    return bestPrice > 0 ? bestPrice : null;
   } catch { return null; }
 }
 

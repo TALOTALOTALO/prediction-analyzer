@@ -26,7 +26,7 @@ async function geocode(city: string): Promise<{ lat: number; lon: number; label:
 
 function extractCity(question: string): string | null {
   const m =
-    question.match(/\bin\s+([A-Z][a-zA-Z ]{2,20?}?)(?:\s+on\s|\s+during\s|\s+this\s|\?|,|$)/)?.[1]?.trim() ??
+    question.match(/\bin\s+([A-Z][a-zA-Z ]{2,30})(?:\s+on\s|\s+during\s|\s+this\s|\?|,|$)/)?.[1]?.trim() ??
     question.match(/([A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+)?)\s+(?:temperature|weather|rainfall|rain|snow|wind)/i)?.[1]?.trim();
   return m ?? null;
 }
@@ -39,7 +39,16 @@ function extractDate(question: string): string | null {
     sep: "09", oct: "10", nov: "11", dec: "12",
   };
   const md = question.match(/\b(january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|jun|jul|aug|sep|oct|nov|dec)\s+(\d{1,2})\b/i);
-  if (md) return `${new Date().getFullYear()}-${months[md[1].toLowerCase()]}-${md[2].padStart(2, "0")}`;
+  if (md) {
+    const month = months[md[1].toLowerCase()];
+    const day = md[2].padStart(2, "0");
+    const now = new Date();
+    // If the resulting date is in the past, assume next year
+    const year = now.getFullYear();
+    const candidate = `${year}-${month}-${day}`;
+    const candidateDate = new Date(candidate);
+    return candidateDate < now ? `${year + 1}-${month}-${day}` : candidate;
+  }
   return question.match(/(\d{4}-\d{2}-\d{2})/)?.[1] ?? null;
 }
 
@@ -47,14 +56,14 @@ export async function getWeatherContext(question: string): Promise<string> {
   const city = extractCity(question);
   if (!city) return "";
 
-  const ckey = city.toLowerCase();
+  const targetDate = extractDate(question);
+  // Include target date in cache key — same city queried for different dates must not collide
+  const ckey = `${city.toLowerCase()}::${targetDate ?? "general"}`;
   const hit = cache.get(ckey);
   if (hit && Date.now() - hit.ts < TTL) return hit.data;
 
   const geo = await geocode(city);
   if (!geo) return "";
-
-  const targetDate = extractDate(question);
 
   try {
     const params = new URLSearchParams({
