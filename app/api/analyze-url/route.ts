@@ -3,6 +3,7 @@ import { NextRequest, NextResponse, after } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { getSupabase } from "@/lib/supabase";
 import { createSign } from "crypto";
+import { getModelInsightsBlock } from "@/lib/model-insights";
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -104,7 +105,7 @@ function kalshiSign(privateKeyPem: string, timestampMs: number, method: string, 
   return signer.sign(privateKeyPem, "base64");
 }
 
-function parseMarketUrl(rawUrl: string): { platform: "Kalshi" | "Polymarket"; marketId: string } | null {
+function parseMarketUrl(rawUrl: string): { platform: "Kalshi" | "Polymarket"; marketId: string; eventSlug?: string } | null {
   try {
     const parsed = new URL(rawUrl);
     const host = parsed.hostname.toLowerCase();
@@ -118,9 +119,13 @@ function parseMarketUrl(rawUrl: string): { platform: "Kalshi" | "Polymarket"; ma
     }
 
     if (host.includes("polymarket.com") && segments.length >= 1) {
-      // /event/{event-slug}/{market-slug} or /market/{condition-id}
+      // /event/{event-slug}/{bracket-slug} or /event/{event-slug} or /market/{condition-id}
       const lastSegment = segments[segments.length - 1];
-      if (lastSegment) return { platform: "Polymarket", marketId: lastSegment };
+      if (!lastSegment) return null;
+      // When URL is /event/{event-slug}/{bracket-slug}, pass the event slug so we can
+      // fetch total event volume (all brackets) rather than just the one bracket's liquidity.
+      const eventSlug = segments[0] === "event" && segments.length >= 3 ? segments[1] : undefined;
+      return { platform: "Polymarket", marketId: lastSegment, eventSlug };
     }
 
     return null;
@@ -226,7 +231,7 @@ async function fetchKalshiMarket(ticker: string): Promise<MarketData | null> {
   }
 }
 
-async function fetchPolymarketMarket(slug: string): Promise<MarketData | null> {
+async function fetchPolymarketMarket(slug: string, eventSlug?: string): Promise<MarketData | null> {
   try {
     const res = await fetch(`https://gamma-api.polymarket.com/markets?slug=${encodeURIComponent(slug)}`);
     if (!res.ok) return null;
@@ -242,6 +247,34 @@ async function fetchPolymarketMarket(slug: string): Promise<MarketData | null> {
 
     const impliedProbability = Math.round(yesPrice * 100);
 
+    // For multi-bracket events, fetch the parent event to get total volume across all outcomes.
+    // The bracket-level liquidity figure is often tiny (e.g. $900 on a 0.1¢ bracket) even
+    // when the parent event has $28k+ in total volume — misleading Claude into calling it "thin".
+    let eventContext = "";
+    const parentSlug = eventSlug ?? (m.slug as string | undefined);
+    if (parentSlug) {
+      try {
+        const evRes = await fetch(`https://gamma-api.polymarket.com/events?slug=${encodeURIComponent(parentSlug)}`);
+        if (evRes.ok) {
+          const events: Record<string, unknown>[] = await evRes.json();
+          const ev = events?.[0];
+          if (ev) {
+            const totalVolume = ev.volume ?? ev.volumeNum ?? "?";
+            const totalLiquidity = ev.liquidity ?? ev.liquidityNum ?? "?";
+            const markets = ev.markets as Array<Record<string, unknown>> | undefined;
+            if (markets && markets.length > 1) {
+              const brackets = markets.map((bm) => {
+                let bmPrice = 0.5;
+                try { bmPrice = parseFloat(JSON.parse(bm.outcomePrices as string)?.[0] ?? "0.5"); } catch { /* */ }
+                return `${bm.question ?? bm.groupItemTitle ?? "?"}: ${Math.round(bmPrice * 100)}%`;
+              }).join(", ");
+              eventContext = ` Parent event total volume: $${totalVolume}. Parent event total liquidity: $${totalLiquidity}. All brackets: ${brackets}.`;
+            }
+          }
+        }
+      } catch { /* non-fatal — proceed without event context */ }
+    }
+
     return {
       platform: "Polymarket",
       event: (m.question as string) ?? slug,
@@ -251,7 +284,7 @@ async function fetchPolymarketMarket(slug: string): Promise<MarketData | null> {
       expirationDate: m.endDate ? new Date(m.endDate as string).toLocaleDateString("en-US") : "unknown",
       category: "Other",
       marketId: (m.conditionId as string) ?? null,
-      rawText: `Volume: $${m.volume ?? "?"}. Liquidity: $${m.liquidity ?? "?"}. Active: ${m.active ?? "?"}.`,
+      rawText: `This bracket volume: $${m.volume ?? "?"}. This bracket liquidity: $${m.liquidity ?? "?"}.${eventContext} Active: ${m.active ?? "?"}.`,
     };
   } catch {
     return null;
@@ -337,7 +370,7 @@ export async function POST(req: NextRequest) {
     if (parsed.platform === "Kalshi") {
       marketData = await fetchKalshiMarket(parsed.marketId);
     } else {
-      marketData = await fetchPolymarketMarket(parsed.marketId);
+      marketData = await fetchPolymarketMarket(parsed.marketId, parsed.eventSlug);
     }
 
     if (!marketData) {
@@ -347,7 +380,10 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const newsContext = await fetchNewsContext(marketData.event, marketData.category);
+    const [newsContext, insightsBlock] = await Promise.all([
+      fetchNewsContext(marketData.event, marketData.category),
+      getModelInsightsBlock(),
+    ]);
 
     const detected = {
       platform: marketData.platform,
@@ -363,12 +399,16 @@ export async function POST(req: NextRequest) {
       marketId: marketData.marketId,
     };
 
+    const todayDate = new Date().toISOString().split("T")[0];
+
     const analysisPrompt = `You are an expert prediction market analyst with access to real-time information. Analyze this bet and return a detailed assessment.
 
+TODAY'S DATE: ${todayDate}
+${insightsBlock ? `\n${insightsBlock}\n` : ""}
 Bet details fetched directly from the ${marketData.platform} API:
 ${JSON.stringify(detected, null, 2)}
 
-${newsContext ? `LIVE CONTEXT (use this to inform your probability estimate — this is current information as of today):\n${newsContext}\n` : ""}
+${newsContext ? `LIVE CONTEXT (use this to inform your probability estimate — this is current information as of today, ${todayDate}):\n${newsContext}\n` : ""}
 
 CRITICAL RULES FOR ANALYSIS QUALITY:
 - Every claim in bullCase, bearCase, keyRisks, summary, entryStrategy, and exitStrategy MUST be grounded in verifiable facts from the live context above or well-established, timeless logic. Do NOT invent scenarios.

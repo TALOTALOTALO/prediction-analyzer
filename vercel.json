@@ -39,6 +39,22 @@
     {
       "path": "/api/cron/reddit",
       "schedule": "0 19 * * *"
+    },
+    {
+      "path": "/api/cron/blog-recap",
+      "schedule": "30 16 * * *"
+    },
+    {
+      "path": "/api/cron/twitter-wins",
+      "schedule": "30 17 * * *"
+    },
+    {
+      "path": "/api/cron/blog-weekly",
+      "schedule": "0 14 * * 0"
+    },
+    {
+      "path": "/api/cron/learn",
+      "schedule": "0 21 * * 0"
     }
   ]
 }

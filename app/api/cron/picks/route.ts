@@ -5,6 +5,7 @@ import { render } from "@react-email/components";
 import { getSupabase } from "@/lib/supabase";
 import { fetchKalshiMarkets, fetchPolymarkets, fetchPredictItMarkets, formatMarketsForClaude } from "@/lib/markets";
 import DailyPicksEmail from "@/emails/DailyPicksEmail";
+import { getModelInsightsBlock } from "@/lib/model-insights";
 
 export const maxDuration = 300; // 5 min — Tavily + Claude adaptive thinking needs room
 
@@ -114,13 +115,14 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ message: "Picks already generated for today", date: today });
   }
 
-  // Fetch live markets + Tavily news context in parallel
-  const [kalshiMarkets, polyMarkets, predictItMarkets, newsContext, marketNews] = await Promise.all([
+  // Fetch live markets, news context, and performance memory in parallel
+  const [kalshiMarkets, polyMarkets, predictItMarkets, newsContext, marketNews, insightsBlock] = await Promise.all([
     fetchKalshiMarkets(),
     fetchPolymarkets(),
     fetchPredictItMarkets(),
     tavilySearch(`prediction market news mispriced opportunities today ${today}`),
     tavilySearch(`politics economics finance breaking news events ${today}`),
+    getModelInsightsBlock(),
   ]);
 
   const allMarkets = [...kalshiMarkets, ...polyMarkets, ...predictItMarkets];
@@ -154,7 +156,7 @@ ${marketNews}`;
       content: `You are an expert prediction market analyst. Today is ${todayLabel}.
 
 You have been given REAL LIVE market prices from Kalshi, Polymarket, and PredictIt — these are actual current prices you can trade right now. You also have Tavily research with breaking news context to help identify mispricings.
-
+${insightsBlock ? `\n${insightsBlock}\n` : ""}
 LIVE DATA:
 ${marketIntel}
 

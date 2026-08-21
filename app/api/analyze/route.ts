@@ -2,6 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse, after } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { getSupabase } from "@/lib/supabase";
+import { getModelInsightsBlock } from "@/lib/model-insights";
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -320,8 +321,11 @@ Now extract all bet details and return ONLY a JSON object with this exact struct
       return NextResponse.json({ error: "Failed to parse bet details from image" }, { status: 422 });
     }
 
-    // Fetch live news context for the event — two parallel Tavily searches
-    const newsContext = await fetchNewsContext(detected.event as string, detected.category as string | undefined);
+    // Fetch live news context + performance memory in parallel
+    const [newsContext, insightsBlock] = await Promise.all([
+      fetchNewsContext(detected.event as string, detected.category as string | undefined),
+      getModelInsightsBlock(),
+    ]);
 
     const todayDate = new Date().toISOString().split("T")[0];
 
@@ -329,7 +333,7 @@ Now extract all bet details and return ONLY a JSON object with this exact struct
     const analysisPrompt = `You are an expert prediction market analyst with access to real-time information. Analyze this bet and return a detailed assessment.
 
 TODAY'S DATE: ${todayDate}
-
+${insightsBlock ? `\n${insightsBlock}\n` : ""}
 Bet details extracted from screenshot:
 ${JSON.stringify(detected, null, 2)}
 
