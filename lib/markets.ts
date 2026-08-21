@@ -3,14 +3,16 @@ import { createSign } from "crypto";
 export interface LiveMarket {
   platform: string;
   question: string;
-  marketId?: string;  // Kalshi ticker or Polymarket ID — used for paper trade resolution
+  marketId?: string;       // Kalshi ticker or Polymarket event slug
   contract?: string;
-  yesPrice: number;   // 0-100 (cents)
-  noPrice?: number;   // 0-100 (cents)
-  volume?: number;    // USD
-  liquidity?: number; // USD
-  closesAt?: string;  // ISO date
+  yesPrice: number;        // 0-100 (cents)
+  noPrice?: number;        // 0-100 (cents)
+  volume?: number;         // USD
+  liquidity?: number;      // USD
+  closesAt?: string;       // ISO date
   category?: string;
+  conditionId?: string;    // Polymarket only — hex condition ID for CLOB API
+  clobTokenIds?: string[]; // Polymarket only — YES/NO token IDs for order book
 }
 
 // --- Kalshi ---
@@ -131,6 +133,12 @@ export async function fetchPolymarkets(): Promise<LiveMarket[]> {
         const bracketVolume = (m.volumeNum as number) ?? parseFloat((m.volume as string) ?? "0");
         const bracketLiq = (m.liquidityNum as number) ?? parseFloat((m.liquidity as string) ?? "0");
 
+        let clobTokenIds: string[] | undefined;
+        try {
+          const raw = m.clobTokenIds as string | undefined;
+          if (raw) clobTokenIds = JSON.parse(raw);
+        } catch { /* non-fatal */ }
+
         return {
           platform: "Polymarket",
           question: m.question as string,
@@ -141,6 +149,8 @@ export async function fetchPolymarkets(): Promise<LiveMarket[]> {
           liquidity: Math.max(eventLiq, bracketLiq),
           closesAt: m.endDate as string,
           category: (parentEvent?.category as string) ?? "General",
+          conditionId: (m.conditionId as string) ?? undefined,
+          clobTokenIds,
         };
       })
       .filter((m): m is LiveMarket => m !== null)

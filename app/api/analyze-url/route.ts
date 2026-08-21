@@ -4,6 +4,8 @@ import { auth } from "@clerk/nextjs/server";
 import { getSupabase } from "@/lib/supabase";
 import { createSign } from "crypto";
 import { getModelInsightsBlock } from "@/lib/model-insights";
+import { getCategoryContext } from "@/lib/research/index";
+import { getPolymarketCLOB } from "@/lib/polymarket-clob";
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -144,6 +146,8 @@ interface MarketData {
   marketId: string;
   platform: string;
   rawText: string;
+  conditionId?: string;
+  clobTokenIds?: string[];
 }
 
 function buildKalshiHeaders(path: string): Record<string, string> {
@@ -275,6 +279,12 @@ async function fetchPolymarketMarket(slug: string, eventSlug?: string): Promise<
       } catch { /* non-fatal — proceed without event context */ }
     }
 
+    let clobTokenIds: string[] | undefined;
+    try {
+      const raw = m.clobTokenIds as string | undefined;
+      if (raw) clobTokenIds = JSON.parse(raw);
+    } catch { /* non-fatal */ }
+
     return {
       platform: "Polymarket",
       event: (m.question as string) ?? slug,
@@ -284,6 +294,8 @@ async function fetchPolymarketMarket(slug: string, eventSlug?: string): Promise<
       expirationDate: m.endDate ? new Date(m.endDate as string).toLocaleDateString("en-US") : "unknown",
       category: "Other",
       marketId: (m.conditionId as string) ?? null,
+      conditionId: (m.conditionId as string) ?? undefined,
+      clobTokenIds,
       rawText: `This bracket volume: $${m.volume ?? "?"}. This bracket liquidity: $${m.liquidity ?? "?"}.${eventContext} Active: ${m.active ?? "?"}.`,
     };
   } catch {
@@ -380,9 +392,13 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const [newsContext, insightsBlock] = await Promise.all([
+    const [newsContext, insightsBlock, categoryContext, clobContext] = await Promise.all([
       fetchNewsContext(marketData.event, marketData.category),
       getModelInsightsBlock(),
+      getCategoryContext(marketData.event, marketData.category),
+      marketData.platform === "Polymarket" && marketData.conditionId && marketData.clobTokenIds?.length
+        ? getPolymarketCLOB(marketData.conditionId, marketData.clobTokenIds)
+        : Promise.resolve(""),
     ]);
 
     const detected = {
@@ -408,7 +424,9 @@ ${insightsBlock ? `\n${insightsBlock}\n` : ""}
 Bet details fetched directly from the ${marketData.platform} API:
 ${JSON.stringify(detected, null, 2)}
 
-${newsContext ? `LIVE CONTEXT (use this to inform your probability estimate — this is current information as of today, ${todayDate}):\n${newsContext}\n` : ""}
+${categoryContext ? `CATEGORY-SPECIFIC INTELLIGENCE (live weather forecasts, sports injuries, polling data, crypto prices):\n${categoryContext}\n` : ""}
+${clobContext ? `${clobContext}\n` : ""}
+${newsContext ? `LIVE NEWS CONTEXT (as of today, ${todayDate}):\n${newsContext}\n` : ""}
 
 CRITICAL RULES FOR ANALYSIS QUALITY:
 - Every claim in bullCase, bearCase, keyRisks, summary, entryStrategy, and exitStrategy MUST be grounded in verifiable facts from the live context above or well-established, timeless logic. Do NOT invent scenarios.

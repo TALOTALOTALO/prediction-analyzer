@@ -3,6 +3,7 @@ import { NextRequest, NextResponse, after } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { getSupabase } from "@/lib/supabase";
 import { getModelInsightsBlock } from "@/lib/model-insights";
+import { getCategoryContext } from "@/lib/research/index";
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -321,10 +322,11 @@ Now extract all bet details and return ONLY a JSON object with this exact struct
       return NextResponse.json({ error: "Failed to parse bet details from image" }, { status: 422 });
     }
 
-    // Fetch live news context + performance memory in parallel
-    const [newsContext, insightsBlock] = await Promise.all([
+    // Fetch live news context, performance memory, and category intelligence in parallel
+    const [newsContext, insightsBlock, categoryContext] = await Promise.all([
       fetchNewsContext(detected.event as string, detected.category as string | undefined),
       getModelInsightsBlock(),
+      getCategoryContext(detected.event as string, detected.category as string | undefined),
     ]);
 
     const todayDate = new Date().toISOString().split("T")[0];
@@ -337,7 +339,8 @@ ${insightsBlock ? `\n${insightsBlock}\n` : ""}
 Bet details extracted from screenshot:
 ${JSON.stringify(detected, null, 2)}
 
-${newsContext ? `LIVE CONTEXT (use this to inform your probability estimate — this is current information as of today, ${todayDate}):\n${newsContext}\n` : ""}
+${newsContext ? `LIVE NEWS CONTEXT (as of today, ${todayDate}):\n${newsContext}\n` : ""}
+${categoryContext ? `CATEGORY-SPECIFIC INTELLIGENCE (live weather forecasts, sports injuries, polling data, crypto prices):\n${categoryContext}\n` : ""}
 
 CRITICAL RULES FOR ANALYSIS QUALITY:
 - Every claim in bullCase, bearCase, keyRisks, summary, entryStrategy, and exitStrategy MUST be grounded in verifiable facts from the live context above or well-established, timeless logic. Do NOT invent scenarios.
