@@ -42,7 +42,9 @@ export async function getModelInsightsBlock(): Promise<string> {
 
     const row = data as ModelInsightsRow;
     const cal = row.calibration;
-    const ov = cal.overall;
+    const ov = cal?.overall;
+
+    if (!ov) return "";
 
     const lines: string[] = [
       `=== FADEME PERFORMANCE MEMORY (${row.analysis_date} · ${row.resolved_count} resolved picks) ===`,

@@ -76,7 +76,7 @@ function formatPicksForClaude(picks: ResolvedPick[]): string {
     .map((p) => {
       const outcome = p.result === "won" ? "✓ WON" : "✗ LOST";
       return [
-        `[${outcome}] ${p.pick_date} · ${p.platform} · Grade ${p.grade} · Edge +${p.edge_score?.toFixed(1)}pp`,
+        `[${outcome}] ${p.pick_date} · ${p.platform} · Grade ${p.grade} · Edge +${(p.edge_score ?? 0).toFixed(1)}pp`,
         `Event: ${p.event} | Position: ${p.position} | Implied: ${p.implied_probability}% → True: ${p.true_odds ?? "?"}%`,
         p.summary ? `Summary: ${p.summary}` : null,
         p.bull_case ? `Bull: ${p.bull_case}` : null,
@@ -137,8 +137,6 @@ export async function GET(req: NextRequest) {
   // Feed picks to Claude for qualitative pattern extraction
   // Use the 60 most recent for context (enough signal, fits in context)
   const samplePicks = picks.slice(0, 60);
-  const wins = samplePicks.filter((p) => p.result === "won");
-  const losses = samplePicks.filter((p) => p.result === "lost");
 
   const prompt = `You are analyzing the track record of FadeMe AI, a prediction market analyst. Below are ${samplePicks.length} resolved picks from the last 90 days — both wins and losses — with the original reasoning that led to each call.
 
@@ -149,8 +147,8 @@ ${formatPicksForClaude(samplePicks)}
 
 ---
 
-WIN RATE SUMMARY:
-- Wins: ${wins.length} | Losses: ${losses.length} | Win rate: ${calibration.overall.win_rate ?? "?"}%
+WIN RATE SUMMARY (all ${picks.length} resolved picks, last 90 days):
+- Wins: ${calibration.overall.wins} | Losses: ${calibration.overall.losses} | Win rate: ${calibration.overall.win_rate ?? "?"}%
 ${Object.entries(calibration.by_category).filter(([,b]) => b.total >= 3).map(([c,b]) => `- ${c}: ${b.win_rate}% (${b.total} picks)`).join("\n")}
 
 ---
@@ -164,7 +162,7 @@ Return a JSON object with exactly these three fields (no markdown, no explanatio
 
   const response = await client.messages.create({
     model: "claude-opus-4-7",
-    max_tokens: 1000,
+    max_tokens: 1500,
     messages: [{ role: "user", content: prompt }],
   });
 
@@ -201,7 +199,7 @@ Return a JSON object with exactly these three fields (no markdown, no explanatio
     return NextResponse.json({ error: "Failed to save insights" }, { status: 500 });
   }
 
-  console.log(`Learn cron: processed ${picks.length} picks, ${wins.length}W-${losses.length}L`);
+  console.log(`Learn cron: processed ${picks.length} picks, ${calibration.overall.wins}W-${calibration.overall.losses}L`);
   return NextResponse.json({
     success: true,
     date: today,
