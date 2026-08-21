@@ -215,6 +215,12 @@ Order by edgeScore descending. Be rigorous — if fewer than 3 picks meet the 10
     return NextResponse.json({ error: "Failed to parse picks" }, { status: 422 });
   }
 
+  // Enforce minimum edge regardless of what Claude outputs — prompt-only enforcement isn't reliable
+  picks = picks.filter((p) => {
+    const edge = typeof p.edgeScore === "number" ? p.edgeScore : parseFloat(String(p.edgeScore ?? "0"));
+    return edge >= 10;
+  });
+
   const rows = picks.map((p) => ({
     pick_date: today,
     platform: p.platform,

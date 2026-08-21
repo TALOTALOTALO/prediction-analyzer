@@ -88,9 +88,17 @@ export async function fetchPolymarkets(): Promise<LiveMarket[]> {
 
     return data
       .filter((m) => {
-        const liq = parseFloat((m.liquidity as string) ?? "0");
+        // Use event-level liquidity when available — bracket liquidity is often tiny even on
+        // well-traded events (e.g. $200 bracket liquidity inside a $37k event)
+        const parentEvent = (m.events as Array<Record<string, unknown>>)?.[0];
+        const eventLiq = parentEvent
+          ? ((parentEvent.liquidityNum as number) ?? parseFloat((parentEvent.liquidity as string) ?? "0"))
+          : 0;
+        const bracketLiq = (m.liquidityNum as number) ?? parseFloat((m.liquidity as string) ?? "0");
+        const effectiveLiq = Math.max(eventLiq, bracketLiq);
+
         const end = m.endDate as string;
-        if (liq < 500) return false;
+        if (effectiveLiq < 500) return false;
         if (!end) return false;
         const daysOut = (new Date(end).getTime() - Date.now()) / 86400000;
         return daysOut > 0 && daysOut < 90;
@@ -108,18 +116,31 @@ export async function fetchPolymarkets(): Promise<LiveMarket[]> {
         // polymarket.com/event/{slug} requires the PARENT EVENT slug (from events[0].slug),
         // NOT the market slug. Market slugs differ from event slugs and break direct links.
         // Event slug format: {title-slug}-{random}-{timestamp}
-        const eventSlug = (m.events as Array<{ slug?: string }>)?.[0]?.slug;
+        const parentEvent = (m.events as Array<Record<string, unknown>>)?.[0];
+        const eventSlug = parentEvent?.slug as string | undefined;
         if (!eventSlug) return null; // skip markets with no parent event slug
+
+        // Prefer event-level volume/liquidity so bracket markets show the full event's depth,
+        // not just one bracket's thin slice (e.g. $9k bracket vs $37k total event)
+        const eventVolume = parentEvent
+          ? ((parentEvent.volumeNum as number) ?? parseFloat((parentEvent.volume as string) ?? "0"))
+          : 0;
+        const eventLiq = parentEvent
+          ? ((parentEvent.liquidityNum as number) ?? parseFloat((parentEvent.liquidity as string) ?? "0"))
+          : 0;
+        const bracketVolume = (m.volumeNum as number) ?? parseFloat((m.volume as string) ?? "0");
+        const bracketLiq = (m.liquidityNum as number) ?? parseFloat((m.liquidity as string) ?? "0");
+
         return {
           platform: "Polymarket",
           question: m.question as string,
           marketId: eventSlug,
           yesPrice,
           noPrice: 100 - yesPrice,
-          volume: (m.volumeNum as number) ?? parseFloat((m.volume as string) ?? "0"),
-          liquidity: (m.liquidityNum as number) ?? parseFloat((m.liquidity as string) ?? "0"),
+          volume: Math.max(eventVolume, bracketVolume),
+          liquidity: Math.max(eventLiq, bracketLiq),
           closesAt: m.endDate as string,
-          category: (m.events as Array<{ category?: string }>)?.[0]?.category ?? "General",
+          category: (parentEvent?.category as string) ?? "General",
         };
       })
       .filter((m): m is LiveMarket => m !== null)
