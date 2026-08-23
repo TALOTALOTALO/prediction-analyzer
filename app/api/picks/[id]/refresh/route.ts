@@ -75,29 +75,47 @@ export async function POST(
     return NextResponse.json({ error: "Pick not found" }, { status: 404 });
   }
 
-  const today = new Date().toLocaleDateString("en-US", {
+  const pickDate = pick.pick_date as string;
+  const pickDateLabel = new Date(pickDate + "T12:00:00").toLocaleDateString("en-US", {
     weekday: "long", month: "long", day: "numeric", year: "numeric",
   });
 
-  const todayIso = new Date().toISOString().split("T")[0];
-  const [r1, r2, r3] = await Promise.all([
-    tavilySearch(`${pick.event} result outcome`, 14),
-    tavilySearch(`${pick.event} latest news update`, 30),
-    tavilySearch(`${pick.event} prediction market odds`, 60),
+  // Calculate days between pick date and today so we only pull
+  // pre-resolution context (articles published before or on the pick date).
+  const todayMs = Date.now();
+  const pickMs = new Date(pickDate + "T12:00:00").getTime();
+  const daysSincePick = Math.max(1, Math.ceil((todayMs - pickMs) / 86_400_000));
+
+  // Search for context that was available AS OF the pick date by capping
+  // the lookback to articles published before the pick resolved.
+  const prePickDays = daysSincePick + 7; // articles from the week before the pick
+  const [r1, r2] = await Promise.all([
+    tavilySearch(`${pick.event} ${pick.platform} prediction market analysis`, prePickDays),
+    tavilySearch(`${pick.event} background context history`, prePickDays),
   ]);
+
   const seen = new Set<string>();
   const merged: TavilyResult[] = [];
-  for (const r of [...r1, ...r2, ...r3]) {
+  for (const r of [...r1, ...r2]) {
     if (!seen.has(r.url)) { seen.add(r.url); merged.push(r); }
   }
-  merged.sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
-  const top = merged.slice(0, 12);
-  const newsContext = top.length > 0
+
+  // Filter to only articles published on or before the pick date so we
+  // don't include outcome/resolution news in the analysis.
+  const prePickResults = merged
+    .filter((r) => {
+      if (!r.published_date) return true;
+      return r.published_date.slice(0, 10) <= pickDate;
+    })
+    .sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
+    .slice(0, 10);
+
+  const newsContext = prePickResults.length > 0
     ? [
-        `=== LIVE RESEARCH (fetched ${todayIso}) ===`,
-        `Each result is prefixed with its publication date [YYYY-MM-DD]. An article published BEFORE the event date is forward-looking.`,
+        `=== BACKGROUND CONTEXT (articles published on or before ${pickDate}) ===`,
+        `Use this to reason about what was knowable when the pick was made. Ignore any outcome information.`,
         ``,
-        formatResults(top),
+        formatResults(prePickResults),
       ].join("\n")
     : "";
 
@@ -109,35 +127,38 @@ export async function POST(
     output_config: { effort: "high" },
     messages: [{
       role: "user",
-      content: `You are an expert prediction market analyst. Today is ${today}.
+      content: `You are an expert prediction market analyst writing the analysis that was delivered to subscribers on ${pickDateLabel} — BEFORE this market resolved.
 
-Re-analyze this prediction market pick using the latest news context below.
+Your job is to reconstruct the forward-looking investment thesis: why did this pick have edge AT THE TIME it was made? Write in present tense as if the market is still open and the outcome is unknown.
 
-PICK DETAILS:
+PICK DETAILS (as of ${pickDateLabel}):
 - Event: ${pick.event}
 - Platform: ${pick.platform}
 - Position: ${pick.position}
-- Odds: ${pick.odds} (${pick.implied_probability}¢ implied)
-- Current grade: ${pick.grade} | Recommendation: ${pick.recommendation}
+- Market price: ${pick.odds} (${pick.implied_probability}¢ implied probability)
+- Our grade: ${pick.grade} | Recommendation: ${pick.recommendation}
 
-LIVE NEWS CONTEXT (current as of today — use this, NOT your training data):
-${newsContext || "No live context available — use only what is logically derivable."}
+BACKGROUND CONTEXT (published before the pick date — use this to ground your reasoning):
+${newsContext || "No pre-pick context found — reason from market structure and base rates only."}
 
 CRITICAL RULES:
-- Every claim MUST be grounded in the live news context above or timeless structural logic.
-- Do NOT reference specific companies, products, or events that you cannot verify are currently active from the news context above (e.g. do not cite products that may have been discontinued).
-- If a specific bear/bull case actor cannot be verified as still relevant, describe it structurally instead.
+- Write as if the outcome is UNKNOWN. Do not reference or imply the result.
+- Every claim must be grounded in the background context above OR in structural market logic.
+- The bull case should explain why the market is underpricing this outcome.
+- The bear case should explain the strongest counterargument a skeptic would make.
+- market_inefficiency should explain specifically WHY the crowd got the price wrong.
 
-Return ONLY a JSON object with updated analysis fields (no markdown):
+Return ONLY a JSON object (no markdown):
 {
-  "summary": "string (2-3 sentences — updated overall assessment)",
-  "bullCase": "string (strongest current argument FOR this position, grounded in live context)",
-  "bearCase": "string (strongest current argument AGAINST this position, grounded in live context)",
+  "summary": "string (2-3 sentences — why this pick has edge, written in present tense before resolution)",
+  "bullCase": "string (strongest forward-looking argument FOR this position)",
+  "bearCase": "string (strongest argument AGAINST — what could make this pick wrong)",
   "keyRisks": ["string", "string", "string"],
-  "recommendationReason": "string (1 sentence — updated key reason)",
-  "trueOdds": number (0-100 scale — your probability estimate as a percentage, e.g. 62 for 62%, NOT 0.62),
+  "marketInefficiency": "string (1-2 sentences — specifically why the crowd is mispricing this)",
+  "recommendationReason": "string (1 sentence — core reason for the recommendation)",
+  "trueOdds": number (0-100 — your probability estimate as a percentage, e.g. 62 for 62%),
   "edgeScore": number (MUST equal trueOdds minus impliedProbability exactly, in percentage points),
-  "grade": "string — derived ONLY from edgeScore: S if edgeScore >= 20, A if edgeScore >= 10, B if >= 5, C if >= 2, D if > 0, F if <= 0",
+  "grade": "string — S if edgeScore >= 20, A if >= 10, B if >= 5, C if >= 2, D if > 0, F if <= 0",
   "confidenceLevel": "string (Low, Medium, High, Very High)"
 }`,
     }],
@@ -162,6 +183,7 @@ Return ONLY a JSON object with updated analysis fields (no markdown):
       bull_case: updated.bullCase,
       bear_case: updated.bearCase,
       key_risks: updated.keyRisks,
+      market_inefficiency: updated.marketInefficiency,
       recommendation_reason: updated.recommendationReason,
       true_odds: updated.trueOdds,
       edge_score: updated.edgeScore,
