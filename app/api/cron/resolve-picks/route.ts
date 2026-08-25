@@ -37,7 +37,41 @@ async function checkKalshiResult(ticker: string): Promise<"yes" | "no" | null> {
   }
 }
 
-async function checkPolymarketResult(marketId: string): Promise<"yes" | "no" | null> {
+function getMarketPrice(market: Record<string, unknown>): number {
+  let prices: string[];
+  try { prices = JSON.parse((market.outcomePrices as string) ?? '["0.5","0.5"]'); }
+  catch { prices = ["0.5", "0.5"]; }
+  return parseFloat(prices[0] ?? "0.5");
+}
+
+// For multi-bracket Polymarket events the parent event slug is stored as market_id,
+// but markets[0] may be a different bracket than the one our pick was on.
+// Score each market against the pick question and prefer the best match;
+// fall back to markets[0] only when there is a single market or no match.
+function findTargetMarket(
+  markets: Array<Record<string, unknown>>,
+  pickQuestion?: string
+): Record<string, unknown> {
+  if (markets.length === 1 || !pickQuestion) return markets[0];
+
+  const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ").trim();
+  const pickTokens = new Set(normalize(pickQuestion).split(" ").filter(t => t.length > 3));
+
+  let bestMarket = markets[0];
+  let bestScore = -1;
+
+  for (const m of markets) {
+    const mq = normalize((m.question as string) ?? "");
+    const mqTokens = mq.split(" ").filter(t => t.length > 3);
+    const overlap = mqTokens.filter(t => pickTokens.has(t)).length;
+    const score = overlap / Math.max(pickTokens.size, mqTokens.length, 1);
+    if (score > bestScore) { bestScore = score; bestMarket = m; }
+  }
+
+  return bestMarket;
+}
+
+async function checkPolymarketResult(marketId: string, pickQuestion?: string): Promise<"yes" | "no" | null> {
   try {
     // New picks store the parent event slug; legacy picks stored hex condition IDs
     const isSlug = /^[a-z0-9-]+$/.test(marketId) && !marketId.startsWith("0x");
@@ -50,25 +84,25 @@ async function checkPolymarketResult(marketId: string): Promise<"yes" | "no" | n
         const ev = events?.[0];
         if (ev) {
           const markets = ev.markets as Array<Record<string, unknown>> | undefined;
-          const firstMarket = markets?.[0];
-          if (firstMarket) {
-            let prices: string[];
-            try { prices = JSON.parse((firstMarket.outcomePrices as string) ?? '["0.5","0.5"]'); }
-            catch { prices = ["0.5", "0.5"]; }
-            const yesPrice = parseFloat(prices[0] ?? "0.5");
+          if (markets && markets.length > 0) {
+            const targetMarket = findTargetMarket(markets, pickQuestion);
+            const yesPrice = getMarketPrice(targetMarket);
 
             // Polymarket NEVER sets active=false — they use closed=true as the settlement signal.
             // Guard price-based resolution behind endDate to prevent premature resolution of
             // long-dated markets that are just priced low (e.g. 3¢ YES ≠ resolved "no").
+            // 48h buffer: oracles (especially weather) can lag 24-48h after the resolution day.
+            // Threshold 0.99/0.01: pre-event prices on short-odds markets (e.g. NO at 100¢ before
+            // the actual temperature is posted) were being misread as final outcomes at 0.95/0.05.
             const isClosed = ev.closed === true;
             // Use event-level endDate (resolution deadline) not market-level endDate (trading close)
-            const endDate = (ev.endDate as string) || (firstMarket.endDate as string);
-            const endDatePassed = endDate ? new Date(endDate) < new Date() : false;
-            const isSettled = isClosed || (endDatePassed && (yesPrice >= 0.95 || yesPrice <= 0.05));
+            const endDate = (ev.endDate as string) || (targetMarket.endDate as string);
+            const endDatePassed = endDate ? new Date(endDate).getTime() + 48 * 60 * 60 * 1000 < Date.now() : false;
+            const isSettled = isClosed || (endDatePassed && (yesPrice >= 0.99 || yesPrice <= 0.01));
 
             if (isSettled) {
-              if (yesPrice >= 0.95) return "yes";
-              if (yesPrice <= 0.05) return "no";
+              if (yesPrice >= 0.99) return "yes";
+              if (yesPrice <= 0.01) return "no";
             }
             return null;
           }
@@ -90,11 +124,11 @@ async function checkPolymarketResult(marketId: string): Promise<"yes" | "no" | n
     const yesPrice = parseFloat(prices[0] ?? "0.5");
     const isClosed = market.closed === true;
     const endDate = market.endDate as string | null;
-    const endDatePassed = endDate ? new Date(endDate) < new Date() : false;
-    const isSettled = isClosed || (endDatePassed && (yesPrice >= 0.95 || yesPrice <= 0.05));
+    const endDatePassed = endDate ? new Date(endDate).getTime() + 48 * 60 * 60 * 1000 < Date.now() : false;
+    const isSettled = isClosed || (endDatePassed && (yesPrice >= 0.99 || yesPrice <= 0.01));
     if (!isSettled) return null;
-    if (yesPrice >= 0.95) return "yes";
-    if (yesPrice <= 0.05) return "no";
+    if (yesPrice >= 0.99) return "yes";
+    if (yesPrice <= 0.01) return "no";
     return null;
   } catch {
     return null;
@@ -109,7 +143,7 @@ export async function GET(req: NextRequest) {
 
   const { data: pending, error } = await getSupabase()
     .from("daily_picks")
-    .select("id, platform, market_id, position, recommendation")
+    .select("id, platform, market_id, position, recommendation, event")
     .is("result", null)
     .not("market_id", "is", null);
 
@@ -133,7 +167,7 @@ export async function GET(req: NextRequest) {
       if (platform === "Kalshi") {
         marketResult = await checkKalshiResult(marketId);
       } else if (platform === "Polymarket") {
-        marketResult = await checkPolymarketResult(marketId);
+        marketResult = await checkPolymarketResult(marketId, pick.event as string | undefined);
       }
       if (!marketResult) return;
 
