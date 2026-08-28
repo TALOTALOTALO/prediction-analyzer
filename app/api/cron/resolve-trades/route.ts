@@ -37,7 +37,31 @@ async function checkKalshiResult(ticker: string): Promise<"yes" | "no" | null> {
   }
 }
 
-async function checkPolymarketResult(marketId: string): Promise<"yes" | "no" | null> {
+function getMarketPrice(market: Record<string, unknown>): number {
+  let prices: string[];
+  try { prices = JSON.parse((market.outcomePrices as string) ?? '["0.5","0.5"]'); }
+  catch { prices = ["0.5", "0.5"]; }
+  return parseFloat(prices[0] ?? "0.5");
+}
+
+function findTargetMarket(
+  markets: Array<Record<string, unknown>>,
+  pickQuestion?: string
+): Record<string, unknown> {
+  if (markets.length === 1 || !pickQuestion) return markets[0];
+  const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ").trim();
+  const pickTokens = new Set(normalize(pickQuestion).split(" ").filter(t => t.length > 3));
+  let bestMarket = markets[0];
+  let bestScore = -1;
+  for (const m of markets) {
+    const mqTokens = normalize((m.question as string) ?? "").split(" ").filter(t => t.length > 3);
+    const score = mqTokens.filter(t => pickTokens.has(t)).length / Math.max(pickTokens.size, mqTokens.length, 1);
+    if (score > bestScore) { bestScore = score; bestMarket = m; }
+  }
+  return bestMarket;
+}
+
+async function checkPolymarketResult(marketId: string, pickQuestion?: string): Promise<"yes" | "no" | null> {
   try {
     // New picks store the parent event slug; legacy picks stored condition IDs (hex)
     const isSlug = /^[a-z0-9-]+$/.test(marketId) && !marketId.startsWith("0x");
@@ -50,20 +74,19 @@ async function checkPolymarketResult(marketId: string): Promise<"yes" | "no" | n
         const ev = events?.[0];
         if (ev) {
           const markets = ev.markets as Array<Record<string, unknown>> | undefined;
-          const firstMarket = markets?.[0];
-          if (firstMarket) {
-            let prices: string[];
-            try { prices = JSON.parse((firstMarket.outcomePrices as string) ?? '["0.5","0.5"]'); }
-            catch { prices = ["0.5", "0.5"]; }
-            const yesPrice = parseFloat(prices[0] ?? "0.5");
+          if (markets && markets.length > 0) {
+            const targetMarket = findTargetMarket(markets, pickQuestion);
+            const yesPrice = getMarketPrice(targetMarket);
             const isClosed = ev.closed === true;
             // Use event-level endDate (resolution deadline) not market-level endDate (trading close)
-            const endDate = (ev.endDate as string) || (firstMarket.endDate as string);
-            const endDatePassed = endDate ? new Date(endDate) < new Date() : false;
-            const isSettled = isClosed || (endDatePassed && (yesPrice >= 0.95 || yesPrice <= 0.05));
+            // Add 24h buffer: Polymarket sets endDate to midnight UTC of the resolution day,
+            // so the date "passes" before the day is over (e.g. weather/same-day markets).
+            const endDate = (ev.endDate as string) || (targetMarket.endDate as string);
+            const endDatePassed = endDate ? new Date(endDate).getTime() + 48 * 60 * 60 * 1000 < Date.now() : false;
+            const isSettled = isClosed || (endDatePassed && (yesPrice >= 0.99 || yesPrice <= 0.01));
             if (isSettled) {
-              if (yesPrice >= 0.95) return "yes";
-              if (yesPrice <= 0.05) return "no";
+              if (yesPrice >= 0.99) return "yes";
+              if (yesPrice <= 0.01) return "no";
             }
             return null;
           }
@@ -85,11 +108,11 @@ async function checkPolymarketResult(marketId: string): Promise<"yes" | "no" | n
     const yesPrice = parseFloat(prices[0] ?? "0.5");
     const isClosed = market.closed === true;
     const endDate = market.endDate as string | null;
-    const endDatePassed = endDate ? new Date(endDate) < new Date() : false;
-    const isSettled = isClosed || (endDatePassed && (yesPrice >= 0.95 || yesPrice <= 0.05));
+    const endDatePassed = endDate ? new Date(endDate).getTime() + 48 * 60 * 60 * 1000 < Date.now() : false;
+    const isSettled = isClosed || (endDatePassed && (yesPrice >= 0.99 || yesPrice <= 0.01));
     if (!isSettled) return null;
-    if (yesPrice >= 0.95) return "yes";
-    if (yesPrice <= 0.05) return "no";
+    if (yesPrice >= 0.99) return "yes";
+    if (yesPrice <= 0.01) return "no";
     return null;
   } catch {
     return null;
@@ -111,7 +134,7 @@ export async function GET(req: NextRequest) {
   // Fetch all pending paper trades with their pick info
   const { data: pending, error } = await getSupabase()
     .from("paper_trades")
-    .select("id, virtual_stake, position, entry_price, daily_picks(platform, market_id)")
+    .select("id, virtual_stake, position, entry_price, daily_picks(platform, market_id, event)")
     .is("result", null);
 
   if (error) {
@@ -128,14 +151,14 @@ export async function GET(req: NextRequest) {
   await Promise.allSettled(
     pending.map(async (trade) => {
       const pickRaw = trade.daily_picks;
-      const pick = (Array.isArray(pickRaw) ? pickRaw[0] ?? null : pickRaw) as { platform: string; market_id: string | null } | null;
+      const pick = (Array.isArray(pickRaw) ? pickRaw[0] ?? null : pickRaw) as { platform: string; market_id: string | null; event?: string | null } | null;
       if (!pick?.market_id) return;
 
       let marketResult: "yes" | "no" | null = null;
       if (pick.platform === "Kalshi") {
         marketResult = await checkKalshiResult(pick.market_id);
       } else if (pick.platform === "Polymarket") {
-        marketResult = await checkPolymarketResult(pick.market_id);
+        marketResult = await checkPolymarketResult(pick.market_id, pick.event ?? undefined);
       }
       if (!marketResult) return;
 
@@ -162,7 +185,7 @@ export async function GET(req: NextRequest) {
   // Also resolve manual_trades that have a market_id
   const { data: manualPending, error: manualErr } = await getSupabase()
     .from("manual_trades")
-    .select("id, platform, market_id, position")
+    .select("id, platform, market_id, position, market")
     .is("result", null)
     .not("market_id", "is", null);
 
@@ -181,7 +204,7 @@ export async function GET(req: NextRequest) {
         if (platform === "Kalshi") {
           marketResult = await checkKalshiResult(marketId);
         } else if (platform === "Polymarket") {
-          marketResult = await checkPolymarketResult(marketId);
+          marketResult = await checkPolymarketResult(marketId, trade.market as string | undefined);
         }
         if (!marketResult) return;
 

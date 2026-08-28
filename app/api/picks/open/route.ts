@@ -28,7 +28,7 @@ export async function GET() {
     .in("grade", ["S", "A"])
     .eq("recommendation", "BUY")
     .gte("pick_date", sevenDaysAgo)
-    .lt("pick_date", today)
+    .lte("pick_date", today)
     .order("pick_date", { ascending: false })
     .order("edge_score", { ascending: false })
     .limit(10);
