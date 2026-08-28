@@ -23,6 +23,16 @@ import { getMarketUrl } from "@/lib/market-url";
 
 export const revalidate = 3600;
 
+export async function generateStaticParams() {
+  const { data } = await getSupabase()
+    .from("daily_picks")
+    .select("pick_date")
+    .order("pick_date", { ascending: false });
+
+  const uniqueDates = [...new Set((data ?? []).map((r) => r.pick_date as string))];
+  return uniqueDates.map((date) => ({ date }));
+}
+
 interface PublicPick {
   id: string;
   pick_date: string;
@@ -208,11 +218,21 @@ export async function generateMetadata({
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return {};
   const formattedDate = formatDate(date);
   return {
-    title: `FadeMe AI Picks — ${formattedDate}`,
-    description: `AI-powered prediction market picks for ${formattedDate}. Kalshi, Polymarket, and PredictIt analysis with edge scores and recommendations.`,
+    title: `Kalshi & Polymarket Picks — ${formattedDate} | FadeMe AI`,
+    description: `AI-graded prediction market picks for ${formattedDate} on Kalshi, Polymarket, and PredictIt. S and A grade plays with edge scores, bull/bear case, and Kelly bet sizing.`,
     openGraph: {
-      title: `FadeMe AI Picks — ${formattedDate}`,
-      description: `AI-curated prediction market picks for ${formattedDate}. See which bets have real edge — powered by Claude AI.`,
+      title: `AI Prediction Market Picks — ${formattedDate}`,
+      description: `Top-rated Kalshi and Polymarket picks for ${formattedDate}. Edge-verified by AI — see which bets have real value.`,
+      url: `https://www.fademe.ai/picks/${date}`,
+      type: "website",
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: `AI Picks for ${formattedDate} — Kalshi & Polymarket`,
+      description: `S and A grade prediction market picks for ${formattedDate} with edge scores and analysis.`,
+    },
+    alternates: {
+      canonical: `https://www.fademe.ai/picks/${date}`,
     },
   };
 }
@@ -260,7 +280,27 @@ export default async function PublicPicksPage({
   const resolvedPicks = picks.filter((p) => p.result !== null);
   const winCount = resolvedPicks.filter((p) => p.result === "won").length;
 
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    name: `AI Prediction Market Picks — ${formattedDate}`,
+    description: `${picks.length} AI-graded prediction market pick${picks.length === 1 ? "" : "s"} for ${formattedDate} on ${platforms.join(", ")}. ${topGrades} high-grade play${topGrades === 1 ? "" : "s"} with edge scores and analysis.`,
+    url: `https://www.fademe.ai/picks/${date}`,
+    numberOfItems: picks.length,
+    itemListElement: picks.map((pick, i) => ({
+      "@type": "ListItem",
+      position: i + 1,
+      name: pick.event,
+      description: `${pick.platform} · Grade ${pick.grade} · ${pick.recommendation} ${pick.position}${pick.odds ? ` @ ${pick.odds}` : ""}${pick.result ? ` · Result: ${pick.result}` : " · Pending"}`,
+    })),
+  };
+
   return (
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
     <div className="min-h-screen bg-bg">
       <nav className="border-b border-border-subtle px-6 py-4">
         <div className="max-w-3xl mx-auto flex items-center justify-between">
@@ -429,5 +469,6 @@ export default async function PublicPicksPage({
         )}
       </div>
     </div>
+    </>
   );
 }

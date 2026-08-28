@@ -6,9 +6,18 @@ export default function robots(): MetadataRoute.Robots {
       {
         userAgent: "*",
         allow: "/",
-        disallow: ["/studio/", "/api/"],
+        disallow: [
+          "/studio/",
+          "/api/",
+          "/sign-in",
+          "/sign-up",
+          "/coach",
+          "/history",
+          "/portfolio",
+        ],
       },
     ],
     sitemap: "https://www.fademe.ai/sitemap.xml",
+    host: "https://www.fademe.ai",
   };
 }
