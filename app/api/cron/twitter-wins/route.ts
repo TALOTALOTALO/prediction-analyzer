@@ -129,7 +129,7 @@ export async function GET(req: NextRequest) {
       // Record each win immediately so partial successes are tracked
       const { error: winInsertErr } = await supabase
         .from("twitter_win_posts")
-        .insert({ pick_id: winsToTweet[i].id, tweet_id: hookTweet.data.id });
+        .insert({ pick_id: winsToTweet[i].id, tweet_id: reply.data.id });
       if (winInsertErr) console.error(`Failed to record win tweet for pick ${winsToTweet[i].id}:`, winInsertErr);
     }
 
